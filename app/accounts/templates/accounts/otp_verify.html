@@ -1,0 +1,157 @@
+{% extends "accounts/base_auth.html" %}
+{% load static %}
+
+{% block title %}Verify Email{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="auth-logo">
+    <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" alt="Company Logo">
+  </div>
+  
+  <h2>📧 Verify Your Email</h2>
+  <p>We've sent a 6-digit verification code to:<br><strong>{{ user_email }}</strong></p>
+  <p style="color: #666; font-size: 14px;">Please check your email and enter the code below.</p>
+
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="message {{ message.tags }}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    
+    <div class="form-field">
+      <label for="otp_code">Verification Code</label>
+      <input 
+        type="text" 
+        name="otp_code" 
+        id="otp_code" 
+        class="form-input" 
+        placeholder="000000"
+        maxlength="6"
+        required
+        autofocus
+        style="font-size: 32px; letter-spacing: 10px; text-align: center; font-family: 'Courier New', monospace; font-weight: bold;"
+      >
+      <small style="display: block; margin-top: 8px; color: #666;">Enter the 6-digit code from your email</small>
+    </div>
+
+    <button type="submit" class="btn-primary" style="margin-top: 20px;">Verify Code</button>
+  </form>
+
+  <div style="margin-top: 30px; text-align: center; padding: 20px; background: #f9fafb; border-radius: 8px;">
+    <p style="color: #666; margin-bottom: 15px;">Didn't receive the code?</p>
+    <button 
+      id="resend-btn" 
+      class="btn-secondary"
+      onclick="resendOTP()"
+      type="button"
+    >
+      Resend Code
+    </button>
+    <p id="resend-message" style="margin-top: 10px; font-size: 14px;"></p>
+  </div>
+
+  <p class="alt" style="margin-top: 20px;">
+    <a href="{% url 'accounts:signup' %}">← Back to Sign Up</a>
+  </p>
+</div>
+
+<script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+function resendOTP() {
+  const btn = document.getElementById('resend-btn');
+  const message = document.getElementById('resend-message');
+  
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  
+  fetch("{% url 'accounts:resend_otp' %}", {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken'),
+      'Content-Type': 'application/json',
+    },
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      message.textContent = '✓ ' + data.message;
+      message.style.color = '#10b981';
+      
+      let countdown = 60;
+      const timer = setInterval(() => {
+        btn.textContent = `Resend Code (${countdown}s)`;
+        countdown--;
+        
+        if (countdown < 0) {
+          clearInterval(timer);
+          btn.disabled = false;
+          btn.textContent = 'Resend Code';
+        }
+      }, 1000);
+    } else {
+      message.textContent = '✗ ' + data.message;
+      message.style.color = '#ef4444';
+      btn.disabled = false;
+      btn.textContent = 'Resend Code';
+    }
+  })
+  .catch(error => {
+    message.textContent = '✗ An error occurred. Please try again.';
+    message.style.color = '#ef4444';
+    btn.disabled = false;
+    btn.textContent = 'Resend Code';
+  });
+}
+
+// Only allow numbers
+document.getElementById('otp_code').addEventListener('input', function(e) {
+  this.value = this.value.replace(/\D/g, '').substring(0, 6);
+});
+</script>
+
+<style>
+.btn-secondary {
+  background: transparent;
+  color: #4f46e5;
+  border: 2px solid #4f46e5;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #4f46e5;
+  color: white;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>
+{% endblock %}

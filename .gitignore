@@ -1,0 +1,65 @@
+# ===================================
+# Python general
+# ===================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore compiled Python files
+*.pyo
+*.pyd
+*.pyc
+
+# ===================================
+# Virtual Environments
+# ===================================
+env/
+venv/
+env_geo/              # the name of virtualenv
+
+# ===================================
+#  Django specific
+# ===================================
+*.log
+db.sqlite3            # if you're using SQLite for local dev
+staticfiles/          # if you're collecting static files locally
+media/                # user-uploaded files
+*.pot
+*.pyc
+
+# ===================================
+# VSCode, PyCharm, and IDE files
+# ===================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ===================================
+# Environment files
+# ===================================
+# actual secrets & # ignore variations like `.env.dev`, `.env.local`, etc.
+*.env                 
+.env.*  
+
+client_secret_417061298958-4tmuvjiseuv7su3rm8ifl9ov1s9dr0kj.apps.googleusercontent.com.json
+
+
+# DO NOT ignore `.env.example`
+!.env.example
+
+# ===================================
+# Dependencies / package files
+# ===================================
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ===================================
+#  OS generated files
+# ===================================
+.DS_Store             # macOS
+Thumbs.db             # Windows
+desktop.ini           # Windows

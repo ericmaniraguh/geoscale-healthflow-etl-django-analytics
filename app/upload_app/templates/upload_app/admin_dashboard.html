@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .sidebar-header h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .nav-actions {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+            color: #495057;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid #dee2e6;
+        }
+
+        .nav-link:hover {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .nav-link.logout {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            border-color: #dc3545;
+        }
+
+        .nav-link.logout:hover {
+            background: linear-gradient(45deg, #c82333, #a71e2a);
+        }
+
+        .admin-badge {
+            background: #dc3545;
+            color: white;
+            font-size: 8px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 8px;
+            text-transform: uppercase;
+            margin-left: auto;
+        }
+
+        .upload-list {
+            list-style: none;
+        }
+
+        .upload-item {
+            margin-bottom: 15px;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: white;
+            border: 2px solid #e9ecef;
+        }
+
+        .upload-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .upload-item.completed {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .upload-item.processing {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            color: white;
+            border-color: #FF9800;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        .upload-content {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-width: 70px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .status-badge.available {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-badge.processing {
+            background: #FF9800;
+            color: white;
+        }
+
+        .status-badge.completed {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .upload-item.active .status-badge,
+        .upload-item.completed .status-badge,
+        .upload-item.processing .status-badge {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .status-indicator.completed {
+            background: #4CAF50;
+        }
+
+        .status-indicator.processing {
+            background: #FF9800;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .upload-details h4 {
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .upload-details p {
+            font-size: 12px;
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 20px;
+        }
+
+        .content-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .content-header h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .content-header p {
+            font-size: 16px;
+            color: #666;
+            margin: 0;
+        }
+
+        .user-info-header {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            text-align: right;
+        }
+
+        .username {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .role {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 15px;
+            display: inline-block;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .role.super-admin {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+        }
+
+        .role.admin {
+            background: linear-gradient(45deg, #28a745, #218838);
+            color: white;
+        }
+
+        .role.user {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+        }
+
+        .session-summary {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 3px solid #ffd700;
+            position: relative;
+        }
+
+        .session-summary::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+            border-radius: 18px;
+            z-index: -1;
+        }
+
+        .session-summary h3 {
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+        }
+
+        .summary-card.completed {
+            border-left-color: #4CAF50;
+        }
+
+        .summary-card.processing {
+            border-left-color: #FF9800;
+        }
+
+        .summary-card.time {
+            border-left-color: #667eea;
+        }
+
+        .summary-card.total {
+            border-left-color: #17a2b8;
+        }
+
+        .summary-card h4 {
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .summary-card p {
+            color: #666;
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .reset-session-btn {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .reset-session-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .messages {
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .alert-success {
+            background: linear-gradient(45deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-error {
+            background: linear-gradient(45deg, #f8d7da, #f1b0b7);
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .form-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .form-header h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .endpoint-url {
+            background: #f5f5f5;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .required {
+            color: #dc3545;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .text-muted {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+
+        .submit-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submit-btn.processing {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            animation: processingPulse 2s infinite;
+        }
+
+        .submit-btn.processing::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: processingShimmer 2s infinite;
+        }
+
+        @keyframes processingPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes processingShimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .submit-btn.completed {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            animation: completedBounce 0.6s ease;
+        }
+
+        @keyframes completedBounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-5px); }
+            60% { transform: translateY(-3px); }
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .user-info-header {
+                position: relative;
+                top: auto;
+                right: auto;
+                text-align: center;
+                margin-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-upload"></i> Available Upload Endpoints</h3>
+                <button class="refresh-btn" onclick="refreshSession()">
+                    <i class="fas fa-sync-alt"></i> Refresh Session
+                </button>
+            </div>
+            <!-- Kibana Visualization Card -->
+<div style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);">
+    <h3 style="margin-bottom: 15px; color: #333; display: flex; align-items: center; gap: 10px;">
+        <i class="fas fa-chart-line" style="color: #667eea;"></i> Data Visualization
+    </h3>
+    <p style="color: #666; margin-bottom: 20px;">Access real-time dashboards and analytics for uploaded data</p>
+    <a href="http://localhost:5601/app/dashboards#/view/cdfa212d-7a7a-43c0-9e25-43b1a045e298?_g=(filters:!(),refreshInterval:(pause:!t,value:60000),time:(from:now-15m,to:now))" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(45deg, #667eea, #764ba2); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+        <i class="fas fa-external-link-alt"></i> Open Kibana Dashboard
+    </a>
+</div>
+
+            <!-- Navigation Actions -->
+            <div class="nav-actions">
+                <!-- Upload Dashboard Link -->
+                <a href="{% url 'upload_app:user_dashboard' %}" class="nav-link">
+                    <i class="fas fa-chart-line"></i> User Dashboard
+                </a>
+                
+                <!-- ETL Processing Link -->
+                <a href="/etl/" class="nav-link">
+                    <i class="fas fa-database"></i> ETL Processing  
+                </a>
+                
+                <!-- Admin Panel Link -->
+                {% if user.is_superuser or user.is_staff %}
+                <a href="{% url 'admin:index' %}" class="nav-link">
+                    <i class="fas fa-cog"></i> Admin Panel
+                    <span class="admin-badge">
+                        {% if user.is_superuser %}SUPER{% else %}ADMIN{% endif %}
+                    </span>
+                </a>
+                {% endif %}
+                
+                <!-- Geospatial Link (if available) -->
+                {% if user.is_superuser or user.is_staff %}
+                <a href="{% url 'geospatial_merger:dashboard' %}" class="nav-link">
+                    <i class="fas fa-globe-americas"></i> Geospatial Merger
+                    <span class="admin-badge">ADMIN</span>
+                </a>
+                {% endif %}
+                
+                <!-- Profile Link -->
+                <a href="#profile" class="nav-link">
+                    <i class="fas fa-user-circle"></i> Profile ({{ user.username|default:"User" }})
+                </a>
+                
+                <!-- Logout Link -->
+                <a href="{% url 'accounts:logout' %}" class="nav-link logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+            
+            <!-- Upload List -->
+            <ul class="upload-list">
+                <li class="upload-item active" data-upload="health-center" id="health-center-upload">
+                    <div class="upload-content">
+                        <span class="status-badge available">AVAILABLE</span>
+                        <div class="upload-details">
+                            <h4>Health Center Data</h4>
+                            <p>Upload - Malaria diagnostics</p>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="health-center-status"></div>
+                </li>
+                
+                <li class="upload-item" data-upload="hmis-api" id="hmis-api-upload">
+                    <div class="upload-content">
+                        <span class="status-badge available">AVAILABLE</span>
+                        <div class="upload-details">
+                            <h4>HMIS API Data</h4>
+                            <p>Upload - Malaria records</p>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="hmis-api-status"></div>
+                </li>
+                
+                <li class="upload-item" data-upload="temperature" id="temperature-upload">
+                    <div class="upload-content">
+                        <span class="status-badge available">AVAILABLE</span>
+                        <div class="upload-details">
+                            <h4>Temperature Data</h4>
+                            <p>Upload - Weather stations</p>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="temperature-status"></div>
+                </li>
+                
+                <li class="upload-item" data-upload="precipitation" id="precipitation-upload">
+                    <div class="upload-content">
+                        <span class="status-badge available">AVAILABLE</span>
+                        <div class="upload-details">
+                            <h4>Precipitation Data</h4>
+                            <p>Upload - Rainfall data</p>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="precipitation-status"></div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="content-header">
+                <h1><i class="fas fa-upload"></i> Upload Data Processing Dashboard</h1>
+                <p>Interactive interface for Rwanda Health Data Upload Operations</p>
+                
+                <!-- User Info Header -->
+                <div class="user-info-header">
+                    {% if user.is_authenticated %}
+                    <div class="username">Welcome, {{ user.username }}!</div>
+                    <div class="role {% if user.is_superuser %}super-admin{% elif user.is_staff %}admin{% else %}user{% endif %}">
+                        {% if user.is_superuser %}
+                            Super Admin - Full Access
+                        {% elif user.is_staff %}
+                            Admin - Staff Access
+                        {% else %}
+                            User - Standard Access
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="username">Not Logged In</div>
+                    <div class="role user">Guest Access</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Session Summary -->
+            <div class="session-summary" id="session-summary" style="display: none;">
+                <h3><i class="fas fa-chart-line"></i> Session Progress</h3>
+                <div class="summary-grid" id="summary-grid">
+                    <!-- Summary cards will be dynamically added here -->
+                </div>
+                <button class="reset-session-btn" onclick="resetSession()">
+                    <i class="fas fa-undo"></i> Reset Session
+                </button>
+            </div>
+
+            <!-- Messages -->
+            <div class="messages" id="messages"></div>
+
+            <!-- Health Center Upload Form -->
+            <div class="form-section active" id="health-center-form">
+                <div class="form-header">
+                    <h2><i class="fas fa-hospital"></i> Health Center Malaria Records</h2>
+                    <div class="endpoint-url">Upload and manage health center malaria diagnostic records with location details</div>
+                </div>
+                
+                <form id="health-center-upload-form">
+                    <div class="form-group">
+                        <label for="hc_file">Upload Health Center Data (CSV/Excel) <span class="required">*</span></label>
+                        <input type="file" id="hc_file" name="file" accept=".csv,.xlsx,.xls" required>
+                        <small class="text-muted">Choose CSV or Excel file</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="hc_dataset_name">Dataset name <span class="required">*</span></label>
+                            <input type="text" id="hc_dataset_name" name="dataset_name" placeholder="Name for this dataset (e.g., Bugesera Health Center Malaria Records)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="hc_district">District <span class="required">*</span></label>
+                            <input type="text" id="hc_district" name="district" placeholder="District name (e.g., Bugesera)" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="hc_sector">Sector <span class="required">*</span></label>
+                            <input type="text" id="hc_sector" name="sector" placeholder="Sector name (e.g., Kamabuye)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="hc_health_center">Health center <span class="required">*</span></label>
+                            <input type="text" id="hc_health_center" name="health_center" placeholder="Health center name (e.g., Kamabuye Health Center)" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hc_year">Year <span class="required">*</span></label>
+                        <input type="text" id="hc_year" name="year" placeholder="Year of the data (e.g. 2024)" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hc_description">Description</label>
+                        <textarea id="hc_description" name="description" rows="4" placeholder="Enter a brief description of this health center dataset (max 200 characters)"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="health-center-submit-btn">
+                        <i class="fas fa-upload"></i> <span>Upload Health Center Data</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- HMIS API Upload Form -->
+            <div class="form-section" id="hmis-api-form">
+                <div class="form-header">
+                    <h2><i class="fas fa-link"></i> HMIS API Data</h2>
+                    <div class="endpoint-url">Upload and manage HMIS malaria records with reporting details</div>
+                </div>
+                
+                <form id="hmis-api-upload-form">
+                    <div class="form-group">
+                        <label for="hmis_file">File <span class="required">*</span></label>
+                        <input type="file" id="hmis_file" name="file" accept=".csv,.xlsx,.xls,.json" required>
+                        <small class="text-muted">Choose file</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="hmis_dataset_name">Dataset name <span class="required">*</span></label>
+                            <input type="text" id="hmis_dataset_name" name="dataset_name" placeholder="Name for this dataset (e.g., HMIS Malaria Data Bugesera 2024)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="hmis_district">District <span class="required">*</span></label>
+                            <input type="text" id="hmis_district" name="district" placeholder="District name (e.g., Bugesera)" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="hmis_health_facility">Health facility <span class="required">*</span></label>
+                            <input type="text" id="hmis_health_facility" name="health_facility" placeholder="Health facility name (e.g., Kamabuye Health Center)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="hmis_year">Year <span class="required">*</span></label>
+                            <input type="text" id="hmis_year" name="year" placeholder="Year of the data (e.g 2024)" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="hmis_period">Period <span class="required">*</span></label>
+                            <input type="text" id="hmis_period" name="period" placeholder="Period covered (e.g., 2021-2023)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="hmis_reporting_level">Reporting level</label>
+                            <input type="text" id="hmis_reporting_level" name="reporting_level" placeholder="Reporting level (e.g. facility, district, national)">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hmis_source">Source</label>
+                        <input type="text" id="hmis_source" name="source" placeholder="Data source (e.g., RBC HMIS database)">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hmis_description">Description</label>
+                        <textarea id="hmis_description" name="description" rows="4" placeholder="Enter a brief description of this HMIS dataset (max 200 characters)"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="hmis-api-submit-btn">
+                        <i class="fas fa-link"></i> <span>Upload HMIS API Data</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Temperature Upload Form -->
+            <div class="form-section" id="temperature-form">
+                <div class="form-header">
+                    <h2><i class="fas fa-thermometer-half"></i> Temperature Data</h2>
+                    <div class="endpoint-url">Upload and manage weather station temperature data</div>
+                </div>
+                
+                <form id="temperature-upload-form">
+                    <div class="form-group">
+                        <label for="temp_file">Upload Temperature Data (CSV/Excel) <span class="required">*</span></label>
+                        <input type="file" id="temp_file" name="file" accept=".csv,.xlsx,.xls" required>
+                        <small class="text-muted">Choose file</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="temp_dataset_name">Dataset name <span class="required">*</span></label>
+                            <input type="text" id="temp_dataset_name" name="dataset_name" placeholder="Temperature Dataset" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="temp_station">Station <span class="required">*</span></label>
+                            <input type="text" id="temp_station" name="station" placeholder="Weather station name(s) (e.g., Kigali International Airport Station)" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="temp_years">Years <span class="required">*</span></label>
+                        <input type="text" id="temp_years" name="years" placeholder="e.g., 2021, 2022, 2023" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="temp_description">Description</label>
+                        <textarea id="temp_description" name="description" rows="4" placeholder="Enter a brief description of this temperature dataset (max 200 characters)"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="temperature-submit-btn">
+                        <i class="fas fa-thermometer-half"></i> <span>Upload Temperature Data</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Precipitation Upload Form -->
+            <div class="form-section" id="precipitation-form">
+                <div class="form-header">
+                    <h2><i class="fas fa-cloud-rain"></i> Precipitation Data</h2>
+                    <div class="endpoint-url">Upload and manage rainfall and precipitation data</div>
+                </div>
+                
+                <form id="precipitation-upload-form">
+                    <div class="form-group">
+                        <label for="prec_file">Upload Precipitation Data (CSV/Excel) <span class="required">*</span></label>
+                        <input type="file" id="prec_file" name="file" accept=".csv,.xlsx,.xls" required>
+                        <small class="text-muted">Choose file</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="prec_dataset_name">Dataset name <span class="required">*</span></label>
+                            <input type="text" id="prec_dataset_name" name="dataset_name" placeholder="Precipitation Dataset" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="prec_station">Station <span class="required">*</span></label>
+                            <input type="text" id="prec_station" name="station" placeholder="Weather station name(s) (e.g., Kigali International Airport Station)" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="prec_years">Years <span class="required">*</span></label>
+                        <input type="text" id="prec_years" name="years" placeholder="Years covered (e.g., 2021, 2022, 2023)" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="prec_description">Description</label>
+                        <textarea id="prec_description" name="description" rows="4" placeholder="Enter a brief description of this precipitation dataset (max 200 characters)"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="precipitation-submit-btn">
+                        <i class="fas fa-cloud-rain"></i> <span>Upload Precipitation Data</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Upload Session Manager matching ETL approach
+        class UploadSessionManager {
+            constructor() {
+                this.sessionData = this.loadSession();
+                this.initializeEventListeners();
+                this.updateUI();
+            }
+
+            loadSession() {
+                const saved = localStorage.getItem('upload_session');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    data.processingUploads = new Set(data.processingUploads || []);
+                    return data;
+                }
+                return {
+                    completedUploads: {},
+                    processingUploads: new Set(),
+                    sessionStartTime: Date.now()
+                };
+            }
+
+            saveSession() {
+                const dataToSave = {
+                    ...this.sessionData,
+                    processingUploads: Array.from(this.sessionData.processingUploads)
+                };
+                localStorage.setItem('upload_session', JSON.stringify(dataToSave));
+                this.sessionData.processingUploads = new Set(dataToSave.processingUploads);
+            }
+
+            initializeEventListeners() {
+                // Sidebar navigation
+                document.querySelectorAll('.upload-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        if (!item.classList.contains('disabled')) {
+                            this.switchUpload(item.dataset.upload);
+                        }
+                    });
+                });
+
+                // Form submissions
+                document.querySelectorAll('form').forEach(form => {
+                    form.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const uploadType = form.id.replace('-upload-form', '');
+                        this.handleUploadSubmission(uploadType, form);
+                    });
+                });
+            }
+
+            switchUpload(uploadType) {
+                // Update sidebar
+                document.querySelectorAll('.upload-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                document.getElementById(`${uploadType}-upload`).classList.add('active');
+
+                // Update forms
+                document.querySelectorAll('.form-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                document.getElementById(`${uploadType}-form`).classList.add('active');
+            }
+
+            async handleUploadSubmission(uploadType, form) {
+                const formData = new FormData(form);
+                const submitBtn = form.querySelector('.submit-btn');
+                const btnSpan = submitBtn.querySelector('span');
+                const originalText = btnSpan.textContent;
+                const originalIcon = submitBtn.querySelector('i').className;
+
+                // Set processing state
+                this.setUploadStatus(uploadType, 'processing');
+                this.sessionData.processingUploads.add(uploadType);
+                this.saveSession();
+
+                // Enhanced button processing state
+                submitBtn.disabled = true;
+                submitBtn.className = 'submit-btn processing';
+                submitBtn.innerHTML = `
+                    <div class="loading-spinner"></div>
+                    <span>Uploading ${this.getUploadDisplayName(uploadType)}...</span>
+                `;
+
+                // Add processing dots animation
+                let dots = 0;
+                const dotsInterval = setInterval(() => {
+                    dots = (dots + 1) % 4;
+                    const dotsStr = '.'.repeat(dots);
+                    const span = submitBtn.querySelector('span');
+                    if (span) {
+                        span.textContent = `Uploading ${this.getUploadDisplayName(uploadType)}${dotsStr}`;
+                    }
+                }, 500);
+
+                try {
+                    // Simulate upload process - replace with actual upload
+                    const response = await this.simulateUploadProcess(uploadType, formData);
+                    clearInterval(dotsInterval);
+                    
+                    if (response.success) {
+                        // Success state
+                        submitBtn.className = 'submit-btn completed';
+                        submitBtn.innerHTML = `
+                            <i class="fas fa-check-circle"></i>
+                            <span>Upload Completed Successfully!</span>
+                        `;
+                        
+                        setTimeout(() => {
+                            this.handleSuccessfulUpload(uploadType, {
+                                fileName: response.fileName || `${uploadType}_data.csv`,
+                                fileSize: response.fileSize || Math.floor(Math.random() * 5000) + 1000,
+                                recordsProcessed: response.recordsProcessed || Math.floor(Math.random() * 1000) + 100,
+                                timestamp: new Date().toISOString()
+                            });
+                            
+                            this.showMessage('success', `${uploadType} upload completed successfully! File: ${response.fileName}, Records: ${response.recordsProcessed}`);
+                            
+                            // Reset form after 2 seconds
+                            setTimeout(() => {
+                                form.reset();
+                            }, 2000);
+                        }, 1000);
+                        
+                    } else {
+                        throw new Error(response.error || 'Upload process failed');
+                    }
+                } catch (error) {
+                    clearInterval(dotsInterval);
+                    console.error('Upload Error:', error);
+                    
+                    // Error state
+                    submitBtn.className = 'submit-btn error';
+                    submitBtn.innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Upload Failed - Try Again</span>
+                    `;
+                    
+                    this.handleFailedUpload(uploadType);
+                    this.showMessage('error', `Error uploading ${uploadType}: ${error.message}`);
+                    
+                    // Reset button after 3 seconds
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.className = 'submit-btn';
+                        submitBtn.innerHTML = `<i class="${originalIcon}"></i> <span>${originalText}</span>`;
+                    }, 3000);
+                    return;
+                }
+
+                // Reset button to normal state after completion animation
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.className = 'submit-btn';
+                    submitBtn.innerHTML = `<i class="${originalIcon}"></i> <span>${originalText}</span>`;
+                }, 4000);
+            }
+
+            async simulateUploadProcess(uploadType, formData) {
+                // Simulate upload delay
+                await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+                
+                // Simulate success/failure
+                if (Math.random() > 0.1) { // 90% success rate
+                    return {
+                        success: true,
+                        fileName: `${uploadType}_upload_${Date.now()}.csv`,
+                        fileSize: Math.floor(Math.random() * 5000) + 1000,
+                        recordsProcessed: Math.floor(Math.random() * 1000) + 100
+                    };
+                } else {
+                    return {
+                        success: false,
+                        error: 'File upload failed or invalid format'
+                    };
+                }
+            }
+
+            getUploadDisplayName(uploadType) {
+                const names = {
+                    'health-center': 'Health Center Data',
+                    'hmis-api': 'HMIS API Data',
+                    'temperature': 'Temperature Data',
+                    'precipitation': 'Precipitation Data'
+                };
+                return names[uploadType] || uploadType.charAt(0).toUpperCase() + uploadType.slice(1);
+            }
+
+            handleSuccessfulUpload(uploadType, data) {
+                this.sessionData.processingUploads.delete(uploadType);
+                this.sessionData.completedUploads[uploadType] = data;
+                this.setUploadStatus(uploadType, 'completed');
+                this.saveSession();
+                this.updateSessionSummary();
+            }
+
+            handleFailedUpload(uploadType) {
+                this.sessionData.processingUploads.delete(uploadType);
+                this.setUploadStatus(uploadType, 'idle');
+                this.saveSession();
+            }
+
+            setUploadStatus(uploadType, status) {
+                const card = document.getElementById(`${uploadType}-upload`);
+                const statusIndicator = document.getElementById(`${uploadType}-status`);
+                const statusBadge = card.querySelector('.status-badge');
+                
+                // Remove all status classes
+                card.classList.remove('completed', 'processing', 'disabled');
+                statusIndicator.classList.remove('completed', 'processing');
+                
+                // Add appropriate status class
+                if (status === 'completed') {
+                    card.classList.add('completed');
+                    statusIndicator.classList.add('completed');
+                    statusBadge.textContent = 'COMPLETED';
+                    statusBadge.className = 'status-badge completed';
+                } else if (status === 'processing') {
+                    card.classList.add('processing');
+                    statusIndicator.classList.add('processing');
+                    statusBadge.textContent = 'UPLOADING';
+                    statusBadge.className = 'status-badge processing';
+                } else if (status === 'disabled') {
+                    card.classList.add('disabled');
+                    statusBadge.textContent = 'DISABLED';
+                } else {
+                    statusBadge.textContent = 'AVAILABLE';
+                    statusBadge.className = 'status-badge available';
+                }
+            }
+
+            updateUI() {
+                // Update upload statuses
+                Object.keys(this.sessionData.completedUploads).forEach(uploadType => {
+                    this.setUploadStatus(uploadType, 'completed');
+                });
+                
+                this.sessionData.processingUploads.forEach(uploadType => {
+                    this.setUploadStatus(uploadType, 'processing');
+                });
+                
+                this.updateSessionSummary();
+            }
+
+            updateSessionSummary() {
+                const summaryDiv = document.getElementById('session-summary');
+                const summaryGrid = document.getElementById('summary-grid');
+                
+                const completedCount = Object.keys(this.sessionData.completedUploads).length;
+                const processingCount = this.sessionData.processingUploads.size;
+                
+                if (completedCount > 0 || processingCount > 0) {
+                    summaryDiv.style.display = 'block';
+                    summaryGrid.innerHTML = '';
+                    
+                    // Completed uploads summary
+                    if (completedCount > 0) {
+                        const completedCard = document.createElement('div');
+                        completedCard.className = 'summary-card completed';
+                        completedCard.innerHTML = `
+                            <h4><i class="fas fa-check-circle" style="color: #4CAF50;"></i> Completed Tasks</h4>
+                            <p>${completedCount} upload${completedCount > 1 ? 's' : ''} completed</p>
+                        `;
+                        summaryGrid.appendChild(completedCard);
+                    }
+                    
+                    // Processing uploads summary
+                    if (processingCount > 0) {
+                        const processingCard = document.createElement('div');
+                        processingCard.className = 'summary-card processing';
+                        processingCard.innerHTML = `
+                            <h4><i class="fas fa-spinner fa-spin" style="color: #FF9800;"></i> Processing</h4>
+                            <p>${processingCount} upload${processingCount > 1 ? 's' : ''} in progress</p>
+                        `;
+                        summaryGrid.appendChild(processingCard);
+                    }
+                    
+                    // Session time
+                    const sessionTime = Math.floor((Date.now() - this.sessionData.sessionStartTime) / 1000 / 60);
+                    const timeCard = document.createElement('div');
+                    timeCard.className = 'summary-card time';
+                    timeCard.innerHTML = `
+                        <h4><i class="fas fa-clock" style="color: #667eea;"></i> Session Time</h4>
+                        <p>${sessionTime} minute${sessionTime !== 1 ? 's' : ''} active</p>
+                    `;
+                    summaryGrid.appendChild(timeCard);
+                    
+                    // Total file size processed
+                    const totalSize = Object.values(this.sessionData.completedUploads)
+                        .reduce((sum, upload) => sum + (upload.fileSize || 0), 0);
+                    
+                    if (totalSize > 0) {
+                        const sizeCard = document.createElement('div');
+                        sizeCard.className = 'summary-card total';
+                        sizeCard.innerHTML = `
+                            <h4><i class="fas fa-file" style="color: #17a2b8;"></i> Total Data</h4>
+                            <p>${(totalSize / 1000).toFixed(1)} KB processed</p>
+                        `;
+                        summaryGrid.appendChild(sizeCard);
+                    }
+                } else {
+                    summaryDiv.style.display = 'none';
+                }
+            }
+
+            showMessage(type, message) {
+                const messagesDiv = document.getElementById('messages');
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type}`;
+                
+                const icon = type === 'success' ? 'check-circle' : 
+                           type === 'error' ? 'exclamation-triangle' : 'info-circle';
+                
+                alertDiv.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+                
+                messagesDiv.appendChild(alertDiv);
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    alertDiv.style.transition = 'opacity 0.5s ease';
+                    alertDiv.style.opacity = '0';
+                    setTimeout(() => alertDiv.remove(), 500);
+                }, 5000);
+            }
+
+            resetSession() {
+                if (confirm('Are you sure you want to reset the current upload session? This will clear all completion status.')) {
+                    this.sessionData = {
+                        completedUploads: {},
+                        processingUploads: new Set(),
+                        sessionStartTime: Date.now()
+                    };
+                    this.saveSession();
+                    
+                    // Reset UI
+                    document.querySelectorAll('.upload-item').forEach(item => {
+                        item.classList.remove('completed', 'processing', 'disabled');
+                        const statusBadge = item.querySelector('.status-badge');
+                        statusBadge.textContent = 'AVAILABLE';
+                        statusBadge.className = 'status-badge available';
+                    });
+                    
+                    document.querySelectorAll('.status-indicator').forEach(indicator => {
+                        indicator.classList.remove('completed', 'processing');
+                    });
+                    
+                    this.updateSessionSummary();
+                    this.showMessage('success', 'Upload session reset successfully!');
+                }
+            }
+
+            refreshSession() {
+                this.updateUI();
+                this.showMessage('success', 'Upload session refreshed successfully!');
+            }
+        }
+
+        // Global functions
+        function resetSession() {
+            window.uploadManager.resetSession();
+        }
+
+        function refreshSession() {
+            window.uploadManager.refreshSession();
+        }
+
+        // Initialize the Upload Session Manager
+        document.addEventListener('DOMContentLoaded', function() {
+            window.uploadManager = new UploadSessionManager();
+            console.log('Upload Dashboard with ETL matching design loaded successfully');
+        });
+    </script>
+</body>
+</html>

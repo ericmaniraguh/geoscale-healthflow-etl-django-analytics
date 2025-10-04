@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Geospatial Processing Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Enhanced CSS with all missing styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Complete Sidebar Styles */
+        .sidebar {
+            width: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .sidebar-header h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .nav-actions {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+            color: #495057;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid #dee2e6;
+        }
+
+        .nav-link:hover {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .nav-link.logout {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            border-color: #dc3545;
+        }
+
+        .nav-link.logout:hover {
+            background: linear-gradient(45deg, #c82333, #a71e2a);
+        }
+
+        .nav-link.back {
+            background: linear-gradient(45deg, #17a2b8, #138496);
+            color: white;
+            border-color: #17a2b8;
+        }
+
+        /* Complete File Status Styles */
+        .file-status-list {
+            list-style: none;
+        }
+
+        .file-status-item {
+            margin-bottom: 15px;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: white;
+            border: 2px solid #e9ecef;
+        }
+
+        .file-status-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-status-item.uploaded {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .file-status-item.processing {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            color: white;
+            border-color: #FF9800;
+            animation: pulse 2s infinite;
+        }
+
+        .file-status-item.completed {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border-color: #28a745;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .file-status-content {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .file-status-badge {
+            font-size: 10px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-width: 70px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .file-status-badge.pending {
+            background: #6c757d;
+            color: white;
+        }
+
+        .file-status-badge.uploaded,
+        .file-status-badge.processing,
+        .file-status-badge.completed {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .file-status-indicator {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .file-status-indicator.uploaded {
+            background: #4CAF50;
+        }
+
+        .file-status-indicator.processing {
+            background: #FF9800;
+            animation: blink 1s infinite;
+        }
+
+        .file-status-indicator.completed {
+            background: #28a745;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .file-status-details h4 {
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .file-status-details p {
+            font-size: 12px;
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .content-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .content-header h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .user-info-header {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            text-align: right;
+        }
+
+        .username {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .role {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 15px;
+            display: inline-block;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: linear-gradient(45deg, #28a745, #218838);
+            color: white;
+        }
+
+        /* Session Summary */
+        .session-summary {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 3px solid #ffd700;
+            position: relative;
+        }
+
+        .session-summary::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+            border-radius: 18px;
+            z-index: -1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card.boundaries { border-left-color: #667eea; }
+        .stat-card.slope { border-left-color: #4CAF50; }
+        .stat-card.processed { border-left-color: #FF9800; }
+        .stat-card.success { border-left-color: #17a2b8; }
+
+        .stat-card h4 {
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-card .value {
+            color: #666;
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* Reset Button */
+        .reset-session-btn {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .reset-session-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        /* Panel Styles */
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 28px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            text-align: center;
+        }
+
+        /* Tab Styles */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 25px;
+            background: white;
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: #f8f9fa;
+            font-size: 16px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            flex: 1;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+            font-weight: 600;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Upload Areas */
+        .upload-section {
+            margin-bottom: 30px;
+        }
+
+        .upload-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #5a67d8;
+            background: #f1f3f4;
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #d4edda;
+        }
+
+        .upload-area.file-selected {
+            border-color: #4CAF50;
+            background: #d4edda;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .file-info.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .file-info.status-success {
+            background: #d4edda;
+            border-left-color: #4CAF50;
+        }
+
+        .file-info.status-error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+
+        .file-info h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .file-details p {
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:disabled {
+            background: #cccccc !important;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+        }
+
+        .btn-info {
+            background: linear-gradient(45deg, #17a2b8, #138496);
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn.processing {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            animation: processingPulse 2s infinite;
+        }
+
+        .btn.processing::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: processingShimmer 2s infinite;
+        }
+
+        @keyframes processingPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes processingShimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        /* Progress Section */
+        .progress-container {
+            margin: 25px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #4CAF50);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 8px;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #333;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        /* Processing Log */
+        .processing-log {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 25px;
+            max-height: 300px;
+            overflow-y: auto;
+            border-left: 4px solid #667eea;
+            display: none;
+        }
+
+        .processing-log.show {
+            display: block;
+        }
+
+        .processing-log h4 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .log-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #666;
+            margin-right: 12px;
+            font-weight: 600;
+        }
+
+        /* Download Section */
+        .download-section {
+            background: linear-gradient(45deg, #d4edda, #c3e6cb);
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 25px;
+            text-align: center;
+            display: none;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+        }
+
+        .download-section.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .download-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: linear-gradient(45deg, #45a049, #3d8b40);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        /* Alert System */
+        .alert-container {
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+            position: relative;
+        }
+
+        .alert-success {
+            background: linear-gradient(45deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border-left-color: #4CAF50;
+        }
+
+        .alert-error {
+            background: linear-gradient(45deg, #f8d7da, #f1b0b7);
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+
+        .alert-info {
+            background: linear-gradient(45deg, #d1ecf1, #bee5eb);
+            color: #0c5460;
+            border-left-color: #17a2b8;
+        }
+
+        /* Statistics Tab Specific */
+        .technical-details, .file-info-section, .data-preview-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .technical-details h4, .file-info-section h4, .data-preview-section h4 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-item strong {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .detail-item div {
+            color: #666;
+        }
+
+        .data-preview {
+            max-height: 350px;
+            overflow-y: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            display: none;
+        }
+
+        .data-preview.show {
+            display: block;
+        }
+
+        .preview-content {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #333;
+            white-space: pre-wrap;
+        }
+
+        .no-preview-message {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .user-info-header {
+                position: relative;
+                top: auto;
+                right: auto;
+                text-align: center;
+                margin-top: 20px;
+            }
+
+            .content-header h1 {
+                font-size: 24px;
+                flex-direction: column;
+            }
+
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading States */
+        .loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* Success States */
+        .success-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .error-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        /* Animated icons */
+        .fa-spin-custom {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Complete HTML structure -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-globe-americas"></i> Geospatial Processing</h3>
+                <button class="refresh-btn" onclick="resetDashboard()">
+                    <i class="fas fa-sync-alt"></i> Reset Dashboard
+                </button>
+            </div>
+
+            <!-- Kibana Visualization Card -->
+<div style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);">
+    <h3 style="margin-bottom: 15px; color: #333; display: flex; align-items: center; gap: 10px;">
+        <i class="fas fa-chart-line" style="color: #667eea;"></i> Data Visualization
+    </h3>
+    <p style="color: #666; margin-bottom: 20px;">Access real-time dashboards and analytics for uploaded data</p>
+    <a href="http://localhost:5601/app/dashboards#/view/cdfa212d-7a7a-43c0-9e25-43b1a045e298?_g=(filters:!(),refreshInterval:(pause:!t,value:60000),time:(from:now-15m,to:now))" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(45deg, #667eea, #764ba2); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+        <i class="fas fa-external-link-alt"></i> Open Kibana Dashboard
+    </a>
+</div>
+
+            <div class="nav-actions">
+                <a href="javascript:history.back()" class="nav-link back">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+                <a href="/etl/" class="nav-link">
+                    <i class="fas fa-database"></i> ETL Processing
+                </a>
+                <a href="/upload/admin-dashboard/" class="nav-link">
+                    <i class="fas fa-upload"></i> Upload Dashboard
+                </a>
+        
+            <!-- Logout Link -->
+                <a href="{% url 'accounts:logout' %}" class="nav-link logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+
+            </div>
+            
+            <ul class="file-status-list">
+                <li class="file-status-item" id="boundary-file-status">
+                    <div class="file-status-content">
+                        <span class="file-status-badge pending" id="boundary-status-badge">PENDING</span>
+                        <div class="file-status-details">
+                            <h4>Boundary Data</h4>
+                            <p id="boundary-status-text">No file selected</p>
+                        </div>
+                    </div>
+                    <div class="file-status-indicator" id="boundary-status-indicator"></div>
+                </li>
+                
+                <li class="file-status-item" id="geotiff-file-status">
+                    <div class="file-status-content">
+                        <span class="file-status-badge pending" id="geotiff-status-badge">PENDING</span>
+                        <div class="file-status-details">
+                            <h4>Slope GeoTIFF</h4>
+                            <p id="geotiff-status-text">No file selected</p>
+                        </div>
+                    </div>
+                    <div class="file-status-indicator" id="geotiff-status-indicator"></div>
+                </li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div class="content-header">
+                <h1><i class="fas fa-map-marked-alt"></i> Geospatial Processing Dashboard</h1>
+                <p>Advanced geospatial data processing with WGS84 coordinate system</p>
+                
+                <div class="user-info-header">
+                    <div class="username">Welcome, Admin!</div>
+                    <div class="role">Admin Access</div>
+                </div>
+            </div>
+
+            <div class="session-summary">
+                <h3><i class="fas fa-chart-line"></i> Processing Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card boundaries">
+                        <h4><i class="fas fa-map"></i> Boundaries</h4>
+                        <div class="value" id="boundaryCount">-</div>
+                    </div>
+                    <div class="stat-card slope">
+                        <h4><i class="fas fa-mountain"></i> Slope Points</h4>
+                        <div class="value" id="slopeCount">-</div>
+                    </div>
+                    <div class="stat-card processed">
+                        <h4><i class="fas fa-cogs"></i> Processed</h4>
+                        <div class="value" id="processedCount">-</div>
+                    </div>
+                    <div class="stat-card success">
+                        <h4><i class="fas fa-check-circle"></i> Success Rate</h4>
+                        <div class="value" id="successRate">-%</div>
+                    </div>
+                </div>
+                <button class="reset-session-btn" onclick="resetDashboard()">
+                    <i class="fas fa-undo"></i> Reset Session
+                </button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('upload', this)">
+                    <i class="fas fa-upload"></i> File Upload
+                </button>
+                <button class="tab" onclick="switchTab('process', this)">
+                    <i class="fas fa-cogs"></i> Processing
+                </button>
+                <button class="tab" onclick="switchTab('statistics', this)">
+                    <i class="fas fa-chart-area"></i> Statistics
+                </button>
+            </div>
+
+            <div id="alertContainer" class="alert-container"></div>
+
+            <!-- Upload Tab -->
+            <div id="uploadTab" class="tab-content active">
+                <section class="panel">
+                    <h2><i class="fas fa-cloud-upload-alt"></i> Upload Geospatial Files</h2>
+                    
+                    <div class="upload-section">
+                        <h3>1. Upload Boundary Data (Shapefile ZIP or GeoJSON)</h3>
+                        <div class="upload-area" id="boundaryUpload">
+                            <i class="fas fa-map-marked-alt" style="font-size: 3rem; color: #667eea; margin-bottom: 1rem;"></i>
+                            <p id="boundaryText">Click here or drag and drop your boundary file</p>
+                            <input type="file" id="boundaryInput" class="file-input" accept=".zip,.geojson,.json">
+                            <br><br>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('boundaryInput').click()">
+                                <i class="fas fa-folder-open"></i> Choose Boundary File
+                            </button>
+                            <p style="margin-top: 1rem; font-size: 14px; color: #666;">
+                                Supports: .zip (shapefile), .geojson, .json
+                            </p>
+                        </div>
+                        <div id="boundaryInfo" class="file-info"></div>
+                    </div>
+
+                    <div class="upload-section">
+                        <h3>2. Upload Slope GeoTIFF</h3>
+                        <div class="upload-area" id="geotiffUpload">
+                            <i class="fas fa-layer-group" style="font-size: 3rem; color: #4CAF50; margin-bottom: 1rem;"></i>
+                            <p id="geotiffText">Click here or drag and drop your slope GeoTIFF</p>
+                            <input type="file" id="geotiffInput" class="file-input" accept=".tif,.tiff">
+                            <br><br>
+                            <button type="button" class="btn btn-success" onclick="document.getElementById('geotiffInput').click()">
+                                <i class="fas fa-mountain"></i> Choose GeoTIFF
+                            </button>
+                            <p style="margin-top: 1rem; font-size: 14px; color: #666;">
+                                Supports: .tif, .tiff (slope data in degrees)
+                            </p>
+                        </div>
+                        <div id="geotiffInfo" class="file-info"></div>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="button" class="btn btn-info" id="validateBtn" onclick="validateFiles()" disabled>
+                            <i class="fas fa-check-circle"></i> Validate Files
+                        </button>
+                        <button type="button" class="btn btn-success" id="uploadBtn" onclick="startProcessing()" disabled>
+                            <i class="fas fa-rocket"></i> Start Processing
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Processing Tab -->
+            <div id="processTab" class="tab-content">
+                <section class="panel">
+                    <h2><i class="fas fa-cogs"></i> Real-time Processing Monitor</h2>
+                    
+                    <div id="progressPanel" style="display: none;">
+                        <h3 style="margin-bottom: 20px; color: #333;"><i class="fas fa-clock"></i> Processing Progress</h3>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                            <div class="progress-text" id="progressText">Ready to process...</div>
+                        </div>
+                        
+                        <div style="margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #667eea;">
+                            <h4 style="margin-bottom: 15px; color: #333;">Processing Status</h4>
+                            <div id="processingStatus">
+                                <p>No processing in progress</p>
+                            </div>
+                        </div>
+
+                        <div class="download-section" id="downloadSection">
+                            <h4 style="margin-bottom: 15px;"><i class="fas fa-check-circle"></i> Processing Complete!</h4>
+                            <p style="margin: 15px 0;">Your geospatial data has been successfully merged.</p>
+                            <a href="#" id="downloadLink" class="download-btn">
+                                <i class="fas fa-download"></i> Download Merged GeoJSON
+                            </a>
+                        </div>
+
+                        <div class="processing-log" id="processingLog">
+                            <h4>Processing Log</h4>
+                            <div id="logEntries"></div>
+                        </div>
+                    </div>
+
+                    <div id="noProcessingMessage" style="text-align: center; padding: 40px; color: #666;">
+                        <i class="fas fa-info-circle" style="font-size: 3rem; margin-bottom: 20px; color: #17a2b8;"></i>
+                        <h3>No Processing Active</h3>
+                        <p>Upload your geospatial files in the Upload tab to begin processing.</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Statistics Tab -->
+            <div id="statisticsTab" class="tab-content">
+                <section class="panel">
+                    <h2><i class="fas fa-chart-area"></i> Processing Statistics & Analytics</h2>
+                    
+                    <div class="stats-grid" style="margin-bottom: 30px;">
+                        <div class="stat-card boundaries">
+                            <h4><i class="fas fa-map"></i> Total Boundary Features</h4>
+                            <div class="value" id="totalBoundaryFeatures">-</div>
+                            <small style="color: #666;">Geographic boundaries processed</small>
+                        </div>
+                        <div class="stat-card slope">
+                            <h4><i class="fas fa-mountain"></i> Slope Data Points</h4>
+                            <div class="value" id="totalSlopePoints">-</div>
+                            <small style="color: #666;">Raster pixels analyzed</small>
+                        </div>
+                        <div class="stat-card processed">
+                            <h4><i class="fas fa-cogs"></i> Processing Success</h4>
+                            <div class="value" id="processingSuccessRate">-%</div>
+                            <small style="color: #666;">Features successfully processed</small>
+                        </div>
+                        <div class="stat-card success">
+                            <h4><i class="fas fa-clock"></i> Processing Time</h4>
+                            <div class="value" id="processingTimeDisplay">-</div>
+                            <small style="color: #666;">Total processing duration</small>
+                        </div>
+                    </div>
+
+                    <div class="technical-details">
+                        <h4>Technical Details</h4>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <strong>Coordinate System:</strong>
+                                <div id="coordinateSystem">WGS84 (EPSG:4326)</div>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Data Quality:</strong>
+                                <div id="dataQuality">-</div>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Spatial Coverage:</strong>
+                                <div id="spatialCoverage">-</div>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Process Status:</strong>
+                                <div id="processStatus">Ready</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="file-info-section">
+                        <h4>File Information</h4>
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <strong>Boundary File:</strong>
+                                <div id="boundaryFileInfo">No file uploaded</div>
+                            </div>
+                            <div class="detail-item">
+                                <strong>GeoTIFF File:</strong>
+                                <div id="geotiffFileInfo">No file uploaded</div>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Total File Size:</strong>
+                                <div id="totalFileSize">0 MB</div>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Upload Status:</strong>
+                                <div id="uploadStatus">Pending</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="data-preview-section">
+                        <h4>Data Preview</h4>
+                        <button class="btn btn-info" onclick="loadPreview()" style="margin-bottom: 20px;">
+                            <i class="fas fa-eye"></i> Load Data Preview
+                        </button>
+                        <div id="dataPreview" class="data-preview">
+                            <pre id="previewContent" class="preview-content"></pre>
+                        </div>
+                        <div id="noPreviewMessage" class="no-preview-message">
+                            <i class="fas fa-file-alt" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>No processed data available for preview yet.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete JavaScript from Part 1 -->
+    <script>
+        // Global variables
+        let files = {
+            boundary: null,
+            geotiff: null
+        };
+        let currentProcessId = null;
+        let progressInterval = null;
+        let processingStartTime = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Geospatial Dashboard initializing...');
+            setupFileUploads();
+            resetStatistics();
+            showAlert('Dashboard ready! Please upload your geospatial files.', 'info');
+            updateStatistics();
+        });
+
+        // Include all the JavaScript functions from Part 1 here
+        // (The functions from the first artifact should be copied here)
+        
+        // Mock functions for demonstration (replace with actual backend integration)
+        async function uploadFiles() {
+            // Simulate upload process
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return 'mock-process-id-' + Date.now();
+        }
+
+  async function startProcessing() {
+    console.log('Processing button clicked!');
+    
+    if (!files.boundary || !files.geotiff) {
+        showAlert('Please upload both files first', 'error');
+        return;
+    }
+
+    if (!validateFileType(files.boundary, 'boundary') || !validateFileType(files.geotiff, 'geotiff')) {
+        showAlert('Please upload valid files before processing', 'error');
+        return;
+    }
+
+    try {
+        // Initialize processing start time (IMPORTANT!)
+        processingStartTime = new Date();
+        
+        // Show processing UI
+        document.getElementById('progressPanel').style.display = 'block';
+        document.getElementById('noProcessingMessage').style.display = 'none';
+        
+        // Update button states
+        const uploadBtn = document.getElementById('uploadBtn');
+        const validateBtn = document.getElementById('validateBtn');
+        uploadBtn.disabled = true;
+        validateBtn.disabled = true;
+        uploadBtn.className = 'btn processing';
+        uploadBtn.innerHTML = ' Processing...';
+        
+        // Update sidebar status to "processing"
+        updateSidebarStatus('boundary', files.boundary.name, 'processing');
+        updateSidebarStatus('geotiff', files.geotiff.name, 'processing');
+        
+        // Update process status
+        document.getElementById('processStatus').textContent = 'Processing';
+        
+        // Start with initial progress
+        updateProgress(10, 'Initializing...');
+        addLogEntry('Starting geospatial processing...');
+
+        // Generate mock process ID
+        currentProcessId = 'mock-process-' + Date.now();
+        
+        // Simulate file upload
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        updateProgress(20, 'Files uploaded successfully');
+        addLogEntry(`Process ID: ${currentProcessId}`);
+        
+        // Start monitoring with live statistics
+        startProgressMonitoring(currentProcessId);
+        
+        showAlert('Processing started successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Processing error:', error);
+        showAlert(`Processing failed: ${error.message}`, 'error');
+        addLogEntry(`ERROR: ${error.message}`);
+        resetProcessingState();
+    }
+}
+function resetProcessingState() {
+    const uploadBtn = document.getElementById('uploadBtn');
+    const validateBtn = document.getElementById('validateBtn');
+    
+    // Reset button states
+    uploadBtn.disabled = false;
+    validateBtn.disabled = false;
+    uploadBtn.className = 'btn btn-success';
+    uploadBtn.innerHTML = ' Start Processing';
+    
+    // Reset sidebar status to uploaded (if files are still valid)
+    if (files.boundary && validateFileType(files.boundary, 'boundary')) {
+        updateSidebarStatus('boundary', files.boundary.name, 'uploaded');
+    }
+    if (files.geotiff && validateFileType(files.geotiff, 'geotiff')) {
+        updateSidebarStatus('geotiff', files.geotiff.name, 'uploaded');
+    }
+    
+    // Clear intervals
+    if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+    }
+    
+    // Reset process status
+    document.getElementById('processStatus').textContent = 'Ready';
+}
+  
+  
+        function startProgressMonitoring(processId) {
+    let progress = 30;
+    let stepCount = 0;
+    const maxSteps = 15; // Total steps for completion
+    
+    // Show processing log
+    const processingLog = document.getElementById('processingLog');
+    processingLog.classList.add('show');
+    
+    addLogEntry('Starting real-time progress monitoring...');
+    
+    progressInterval = setInterval(() => {
+        stepCount++;
+        
+        // Calculate progress with some randomness
+        progress = Math.min(30 + (stepCount / maxSteps) * 65 + Math.random() * 5, 100);
+        
+        // Update progress bar
+        updateProgress(Math.round(progress), getProgressMessage(progress));
+        
+        // Update statistics in real-time (THIS IS THE KEY ADDITION)
+        updateLiveProcessingStats(progress, stepCount, maxSteps);
+        
+        // Switch to processing tab automatically
+        if (stepCount === 2) {
+            switchTab('process');
+        }
+        
+        // Complete processing when done
+        if (progress >= 100 || stepCount >= maxSteps) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+            
+            // Final statistics update
+            const finalStats = {
+                completed: true,
+                file_statistics: {
+                    total_boundary_features: 150 + Math.floor(Math.random() * 50),
+                    total_slope_points: 45000 + Math.floor(Math.random() * 10000),
+                    processed_features: 148 + Math.floor(Math.random() * 10)
+                },
+                coordinate_info: {
+                    overlap_coverage: '95.2%',
+                    overlap_status: 'OVERLAP_ACHIEVED'
+                }
+            };
+            
+            onProcessingComplete(processId, finalStats);
+        }
+    }, 1500); // Update every 1.5 seconds
+}
+
+// NEW FUNCTION: Update live processing statistics
+function updateLiveProcessingStats(progress, stepCount, maxSteps) {
+    // Calculate simulated statistics based on progress
+    const progressRatio = progress / 100;
+    
+    // Simulate boundary features being processed
+    const totalBoundaries = 150 + Math.floor(Math.random() * 50);
+    const processedBoundaries = Math.floor(totalBoundaries * progressRatio);
+    
+    // Simulate slope points being analyzed
+    const totalSlopePoints = 45000 + Math.floor(Math.random() * 10000);
+    const analyzedSlopePoints = Math.floor(totalSlopePoints * progressRatio);
+    
+    // Calculate success rate
+    const successRate = Math.min(95 + Math.random() * 4, 100);
+    
+    // Update the main statistics cards (TOP SECTION)
+    document.getElementById('boundaryCount').textContent = processedBoundaries.toLocaleString();
+    document.getElementById('slopeCount').textContent = analyzedSlopePoints.toLocaleString();
+    document.getElementById('processedCount').textContent = processedBoundaries.toLocaleString();
+    document.getElementById('successRate').textContent = `${successRate.toFixed(1)}%`;
+    
+    // Update detailed statistics (Statistics tab)
+    document.getElementById('totalBoundaryFeatures').textContent = totalBoundaries.toLocaleString();
+    document.getElementById('totalSlopePoints').textContent = totalSlopePoints.toLocaleString();
+    document.getElementById('processingSuccessRate').textContent = `${successRate.toFixed(1)}%`;
+    
+    // Update processing time
+    if (processingStartTime) {
+        const elapsed = Math.floor((new Date() - processingStartTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        const timeDisplay = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+        document.getElementById('processingTimeDisplay').textContent = timeDisplay;
+    }
+    
+    // Update spatial coverage and data quality
+    if (progress > 50) {
+        document.getElementById('spatialCoverage').textContent = `${(85 + progress * 0.15).toFixed(1)}%`;
+        document.getElementById('dataQuality').textContent = progress > 80 ? 'Excellent' : 'Good';
+    }
+    
+    // Log progress updates
+    if (stepCount % 3 === 0) { // Log every 3rd step
+        addLogEntry(`Processed ${processedBoundaries}/${totalBoundaries} boundary features`);
+        addLogEntry(`Analyzed ${analyzedSlopePoints.toLocaleString()} slope data points`);
+    }
+}
+
+// NEW FUNCTION: Get appropriate progress message
+function getProgressMessage(progress) {
+    if (progress < 20) return 'Initializing processing...';
+    if (progress < 40) return 'Loading geospatial data...';
+    if (progress < 60) return 'Processing boundary features...';
+    if (progress < 80) return 'Analyzing slope data...';
+    if (progress < 95) return 'Merging datasets...';
+    return 'Finalizing results...';
+}
+        // Alert system for user notifications
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            
+            const icon = getAlertIcon(type);
+            alertDiv.innerHTML = `
+                <i class="${icon}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.remove()" style="margin-left: auto; background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+            `;
+            
+            alertContainer.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        function getAlertIcon(type) {
+            switch(type) {
+                case 'success': return 'fas fa-check-circle';
+                case 'error': return 'fas fa-exclamation-triangle';
+                case 'info': return 'fas fa-info-circle';
+                default: return 'fas fa-info-circle';
+            }
+        }
+
+        // Tab switching functionality
+        function switchTab(tabName, tabElement = null) {
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            const selectedContent = document.getElementById(`${tabName}Tab`);
+            if (selectedContent) {
+                selectedContent.classList.add('active');
+            }
+            
+            if (tabElement) {
+                tabElement.classList.add('active');
+            } else {
+                const tabButtons = document.querySelectorAll('.tab');
+                tabButtons.forEach(tab => {
+                    if (tab.textContent.toLowerCase().includes(tabName.toLowerCase())) {
+                        tab.classList.add('active');
+                    }
+                });
+            }
+            
+            console.log(`Switched to ${tabName} tab`);
+        }
+
+        // File upload setup
+        function setupFileUploads() {
+            const boundaryInput = document.getElementById('boundaryInput');
+            const geotiffInput = document.getElementById('geotiffInput');
+
+            boundaryInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    files.boundary = file;
+                    handleFileSelection('boundary', file);
+                }
+            });
+
+            geotiffInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    files.geotiff = file;
+                    handleFileSelection('geotiff', file);
+                }
+            });
+
+            setupDragAndDrop();
+        }
+
+        function handleFileSelection(fileType, file) {
+            console.log(`Processing ${fileType} file:`, file.name);
+            
+            const isValid = validateFileType(file, fileType);
+            
+            const uploadArea = document.getElementById(`${fileType}Upload`);
+            const textElement = document.getElementById(`${fileType}Text`);
+            uploadArea.classList.add('file-selected');
+            textElement.textContent = `Selected: ${file.name}`;
+
+            const infoDiv = document.getElementById(`${fileType}Info`);
+            infoDiv.className = `file-info show ${isValid ? 'status-success' : 'status-error'}`;
+            infoDiv.innerHTML = `
+                <h4><i class="fas fa-file"></i> ${file.name}</h4>
+                <div class="file-details">
+                    <p><strong>Size:</strong> ${formatFileSize(file.size)}</p>
+                    <p><strong>Type:</strong> ${file.type || getFileExtension(file.name)}</p>
+                    <p><strong>Status:</strong> ${isValid ? '✅ Valid file' : '❌ Invalid file type'}</p>
+                </div>
+            `;
+
+            updateSidebarStatus(fileType, file.name, isValid ? 'uploaded' : 'error');
+            updateStatistics();
+            updateButtons();
+            showAlert(`${fileType === 'boundary' ? 'Boundary file' : 'GeoTIFF'} ${isValid ? 'uploaded successfully' : 'has invalid format'}`, isValid ? 'success' : 'error');
+        }
+
+        function validateFileType(file, fileType) {
+            const fileName = file.name.toLowerCase();
+            
+            if (fileType === 'boundary') {
+                return fileName.endsWith('.zip') || fileName.endsWith('.geojson') || fileName.endsWith('.json');
+            } else if (fileType === 'geotiff') {
+                return fileName.endsWith('.tif') || fileName.endsWith('.tiff');
+            }
+            
+            return false;
+        }
+
+        function updateSidebarStatus(fileType, fileName, status) {
+            const statusItem = document.getElementById(`${fileType}-file-status`);
+            const statusBadge = document.getElementById(`${fileType}-status-badge`);
+            const statusText = document.getElementById(`${fileType}-status-text`);
+            const statusIndicator = document.getElementById(`${fileType}-status-indicator`);
+
+            statusItem.classList.remove('uploaded', 'processing', 'completed');
+            statusIndicator.classList.remove('uploaded', 'processing', 'completed');
+
+            if (status === 'uploaded') {
+                statusItem.classList.add('uploaded');
+                statusIndicator.classList.add('uploaded');
+                statusBadge.textContent = 'UPLOADED';
+                statusBadge.className = 'file-status-badge uploaded';
+                statusText.textContent = fileName;
+            } else if (status === 'processing') {
+                statusItem.classList.add('processing');
+                statusIndicator.classList.add('processing');
+                statusBadge.textContent = 'PROCESSING';
+                statusBadge.className = 'file-status-badge processing';
+            } else if (status === 'completed') {
+                statusItem.classList.add('completed');
+                statusIndicator.classList.add('completed');
+                statusBadge.textContent = 'COMPLETED';
+                statusBadge.className = 'file-status-badge completed';
+            } else if (status === 'error') {
+                statusBadge.textContent = 'ERROR';
+                statusText.textContent = 'Invalid file format';
+            }
+        }
+
+        function updateButtons() {
+            const validateBtn = document.getElementById('validateBtn');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            const hasBoundary = files.boundary && validateFileType(files.boundary, 'boundary');
+            const hasGeotiff = files.geotiff && validateFileType(files.geotiff, 'geotiff');
+            const bothValid = hasBoundary && hasGeotiff;
+            
+            validateBtn.disabled = !bothValid;
+            uploadBtn.disabled = !bothValid;
+
+            if (bothValid) {
+                showAlert('Both files are valid! You can now validate and process.', 'success');
+            }
+        }
+
+        function updateStatistics() {
+            if (files.boundary) {
+                document.getElementById('boundaryFileInfo').textContent = `${files.boundary.name} (${formatFileSize(files.boundary.size)})`;
+            }
+            
+            if (files.geotiff) {
+                document.getElementById('geotiffFileInfo').textContent = `${files.geotiff.name} (${formatFileSize(files.geotiff.size)})`;
+            }
+            
+            const totalSize = (files.boundary?.size || 0) + (files.geotiff?.size || 0);
+            document.getElementById('totalFileSize').textContent = formatFileSize(totalSize);
+            
+            const boundaryUploaded = files.boundary && validateFileType(files.boundary, 'boundary');
+            const geotiffUploaded = files.geotiff && validateFileType(files.geotiff, 'geotiff');
+            
+            if (boundaryUploaded && geotiffUploaded) {
+                document.getElementById('uploadStatus').textContent = 'Both files uploaded';
+                document.getElementById('uploadStatus').style.color = '#28a745';
+            } else if (boundaryUploaded || geotiffUploaded) {
+                document.getElementById('uploadStatus').textContent = 'Partial upload';
+                document.getElementById('uploadStatus').style.color = '#ffc107';
+            } else {
+                document.getElementById('uploadStatus').textContent = 'Pending';
+                document.getElementById('uploadStatus').style.color = '#6c757d';
+            }
+        }
+
+        // Utility functions
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function getFileExtension(filename) {
+            return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2);
+        }
+
+        function resetDashboard() {
+            if (confirm('Are you sure you want to reset the dashboard?')) {
+                files = { boundary: null, geotiff: null };
+                document.getElementById('boundaryInput').value = '';
+                document.getElementById('geotiffInput').value = '';
+                resetUploadArea('boundary');
+                resetUploadArea('geotiff');
+                updateSidebarStatus('boundary', 'No file selected', 'pending');
+                updateSidebarStatus('geotiff', 'No file selected', 'pending');
+                document.getElementById('alertContainer').innerHTML = '';
+                
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                }
+                document.getElementById('progressPanel').style.display = 'none';
+                document.getElementById('noProcessingMessage').style.display = 'block';
+                
+                resetStatistics();
+                updateButtons();
+                switchTab('upload');
+                showAlert('Dashboard reset successfully', 'success');
+            }
+        }
+
+        function resetUploadArea(fileType) {
+            const uploadArea = document.getElementById(`${fileType}Upload`);
+            const textElement = document.getElementById(`${fileType}Text`);
+            const infoDiv = document.getElementById(`${fileType}Info`);
+            
+            uploadArea.classList.remove('file-selected');
+            textElement.textContent = `Click here or drag and drop your ${fileType === 'boundary' ? 'boundary file' : 'slope GeoTIFF'}`;
+            infoDiv.className = 'file-info';
+            infoDiv.innerHTML = '';
+        }
+
+        function resetStatistics() {
+            const elements = ['boundaryCount', 'slopeCount', 'processedCount', 'successRate', 
+                             'totalBoundaryFeatures', 'totalSlopePoints', 'processingSuccessRate', 
+                             'processingTimeDisplay', 'spatialCoverage', 'dataQuality'];
+            
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = id.includes('Rate') ? '-%' : '-';
+            });
+            
+            document.getElementById('boundaryFileInfo').textContent = 'No file uploaded';
+            document.getElementById('geotiffFileInfo').textContent = 'No file uploaded';
+            document.getElementById('totalFileSize').textContent = '0 MB';
+            document.getElementById('uploadStatus').textContent = 'Pending';
+            document.getElementById('processStatus').textContent = 'Ready';
+        }
+
+        function validateFiles() {
+            if (!files.boundary || !files.geotiff) {
+                showAlert('Please upload both files first', 'error');
+                return;
+            }
+            showAlert('Files validated successfully!', 'success');
+        }
+
+        function setupDragAndDrop() {
+            ['boundary', 'geotiff'].forEach(fileType => {
+                const area = document.getElementById(`${fileType}Upload`);
+                
+                area.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('dragover');
+                });
+                
+                area.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('dragover');
+                });
+                
+                area.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('dragover');
+                    const droppedFiles = e.dataTransfer.files;
+                    if (droppedFiles.length > 0) {
+                        files[fileType] = droppedFiles[0];
+                        handleFileSelection(fileType, droppedFiles[0]);
+                    }
+                });
+            });
+        }
+
+        function updateProgress(percentage, message) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            if (progressFill) progressFill.style.width = percentage + '%';
+            if (progressText) progressText.textContent = message;
+            
+            addLogEntry(`Progress: ${percentage}% - ${message}`);
+        }
+
+        function addLogEntry(message) {
+            const logEntries = document.getElementById('logEntries');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${message}`;
+            
+            logEntries.appendChild(entry);
+            logEntries.scrollTop = logEntries.scrollHeight;
+        }
+
+        function onProcessingComplete(processId, status) {
+            showAlert('Processing completed successfully!', 'success');
+            updateSidebarStatus('boundary', files.boundary.name, 'completed');
+            updateSidebarStatus('geotiff', files.geotiff.name, 'completed');
+            
+            const downloadSection = document.getElementById('downloadSection');
+            downloadSection.classList.add('show');
+            
+            if (status.file_statistics) {
+                const stats = status.file_statistics;
+                document.getElementById('totalBoundaryFeatures').textContent = stats.total_boundary_features || '-';
+                document.getElementById('totalSlopePoints').textContent = stats.total_slope_points?.toLocaleString() || '-';
+                document.getElementById('processingSuccessRate').textContent = 
+                    ((stats.processed_features / stats.total_boundary_features) * 100).toFixed(1) + '%';
+            }
+            
+            document.getElementById('processStatus').textContent = 'Completed';
+        }
+
+        async function loadPreview() {
+            const previewBtn = event.target;
+            previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            previewBtn.disabled = true;
+
+            try {
+                // Simulate loading preview data
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                document.getElementById('noPreviewMessage').style.display = 'none';
+                document.getElementById('dataPreview').style.display = 'block';
+                
+                const sampleData = {
+                    type: "FeatureCollection",
+                    features: [
+                        {
+                            type: "Feature",
+                            properties: {
+                                id: 1,
+                                slope_mean: 15.2,
+                                slope_max: 23.8
+                            },
+                            geometry: {
+                                type: "Polygon",
+                                coordinates: [[[-74.0059, 40.7128], [-74.0058, 40.7129], [-74.0057, 40.7127], [-74.0059, 40.7128]]]
+                            }
+                        }
+                    ]
+                };
+                
+                document.getElementById('previewContent').textContent = JSON.stringify(sampleData, null, 2);
+                showAlert('Preview loaded successfully', 'success');
+                
+            } catch (error) {
+                showAlert('Failed to load preview', 'error');
+            } finally {
+                previewBtn.innerHTML = '<i class="fas fa-eye"></i> Load Data Preview';
+                previewBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
