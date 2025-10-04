@@ -1,0 +1,510 @@
+/* ============================
+   LOGO ON RIGHT SIDE
+   ============================ */
+.auth-logo {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+html, body {
+  height: 100%;
+}
+
+.auth-wrapper {
+  height: 100vh;
+  overflow: hidden;
+}
+
+
+.auth-logo img {
+  height: 50px;
+  width: auto;
+  max-width: 200px;
+}
+
+.auth-logo.large img {
+  height: 80px;
+}
+
+.auth-logo.small img {
+  height: 35px;
+}
+
+/* ============================
+   GLOBAL STYLES
+   ============================ */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+.auth-wrapper {
+  display: flex;
+  height: 100vh;
+  min-height: 100vh;
+  width: 100vw; /* Full viewport width */
+}
+
+/* ============================
+   LEFT SIDE (IMAGE + OVERLAY) - FIXED COVERAGE
+   ============================ */
+.auth-left {
+  flex: 1;
+  background: url('../Images/geo-scale.png') no-repeat center center;
+  background-size: cover;
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+}
+
+
+/* Ensure background covers entire area */
+.auth-left::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: inherit;
+  background-repeat: inherit;
+  background-position: inherit;
+  background-size: inherit;
+  z-index: 1;
+}
+
+.auth-overlay {
+  background: rgba(0, 50, 150, 0.4);
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2; /* Above background */
+}
+
+.auth-text {
+  color: white;
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  width: calc(100% - 40px);
+  max-width: 80%;
+  z-index: 3; /* Above overlay */
+}
+
+/* ============================
+   RIGHT SIDE (FORM CONTAINER) - FIXED SHAKING
+   ============================ */
+.auth-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  min-height: 100vh;
+  position: relative;
+  background-color: #ffffff;
+  /* Remove any transforms that might cause shaking */
+  transform: none;
+  will-change: auto; /* Prevent unnecessary GPU layers */
+}
+
+.form-container {
+  width: 100%;
+  max-width: 380px;
+  max-height: 95vh;
+  overflow-y: auto;
+  padding-top: 80px;
+  margin-top: -40px;
+  /* Prevent any transforms or transitions that cause shaking */
+  transform: none;
+  transition: none;
+}
+
+.form-container h2 {
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 1.6rem;
+  font-weight: bold;
+  display: block;
+}
+
+.form-container p {
+  color: #666;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  display: block;
+}
+
+/* ============================
+   FORM FIELDS - FIXED SHAKING
+   ============================ */
+.form-field {
+  margin-bottom: 0.8rem;
+  display: block;
+  /* Prevent any layout shifts */
+  transform: none;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.85rem;
+}
+
+/* ============================
+   INPUTS - REMOVED SHAKING TRANSITIONS
+   ============================ */
+.form-input,
+input[type="text"],
+input[type="email"], 
+input[type="tel"],
+input[type="password"],
+select {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  border: 2px solid #ddd !important;
+  border-radius: 6px !important;
+  font-size: 0.9rem !important;
+  box-sizing: border-box !important;
+  /* Simplified transition - only border color */
+  transition: border-color 0.15s ease !important;
+  display: block !important;
+  background-color: white !important;
+  color: #333 !important;
+  font-family: Arial, sans-serif !important;
+  /* Prevent shaking */
+  transform: none !important;
+  will-change: border-color !important;
+}
+
+.form-input:focus,
+input:focus,
+select:focus {
+  outline: none !important;
+  border-color: #1d4ed8 !important;
+  /* Removed box-shadow that might cause shaking */
+  /* box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1) !important; */
+}
+
+/* ============================
+   MESSAGES (ERROR / SUCCESS)
+   ============================ */
+.field-error {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.error-messages {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.messages { margin-bottom: 1rem; }
+.message {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  border: 1px solid;
+}
+.message.success { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+.message.error   { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+.message.warning { background: #fffbeb; border-color: #fed7aa; color: #d97706; }
+.message.info    { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+
+/* ============================
+   BUTTONS - MINIMAL TRANSITIONS
+   ============================ */
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: #1d4ed8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-top: 0.8rem;
+  /* Simplified transition */
+  transition: background-color 0.15s ease;
+  transform: none; /* Prevent shaking */
+}
+
+.btn-primary:hover { 
+  background: #1e40af; 
+}
+
+/* Removed active transform that might cause shaking */
+.btn-primary:active { 
+  background: #1e40af;
+}
+
+/* ============================
+   FORM OPTIONS
+   ============================ */
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0.8rem 0;
+  font-size: 0.85rem;
+}
+
+.form-options label {
+  display: flex;
+  align-items: center;
+  color: #666;
+  cursor: pointer;
+}
+.form-options a { 
+  color: #1d4ed8; 
+  text-decoration: none;
+  transition: none; /* Remove transition */
+}
+.form-options a:hover { text-decoration: underline; }
+
+/* ============================
+   SOCIAL LOGIN
+   ============================ */
+.social-login {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.social-login p:first-of-type {
+  display: inline-block;
+  position: relative;
+  padding: 0 10px;
+  background: #fff;
+  z-index: 1;
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.social-login p:first-of-type::before,
+.social-login p:first-of-type::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 120%;
+  height: 1px;
+  background: #ddd;
+  z-index: -1;
+}
+
+.social-login p:first-of-type::before { left: -130%; }
+.social-login p:first-of-type::after  { right: -130%; }
+
+.social-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Individual button styles - minimal transitions */
+.social {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 500;
+  transition: background-color 0.15s ease; /* Minimal transition */
+  transform: none; /* Prevent shaking */
+}
+
+.social.fb {
+  background: #3b5998;
+  color: white;
+  border: none;
+}
+.social.google {
+  background: white;
+  border: 1px solid #ddd;
+  color: #444;
+}
+.social.linkedin {
+  background: #0077b5;
+  color: white;
+  border: none;
+}
+
+.social.google:hover { background: #f8f8f8; }
+.social.fb:hover     { background: #334d84; }
+.social.linkedin:hover { background: #005983; }
+
+/* ============================
+   SIGNUP / ALT LINKS
+   ============================ */
+.alt {
+  margin-top: 1.2rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+.alt a {
+  color: #1d4ed8;
+  font-weight: 500;
+  text-decoration: none;
+  transition: none; /* Remove transition */
+}
+.alt a:hover { text-decoration: underline; }
+
+/* ============================
+   RESPONSIVE BREAKPOINTS
+   ============================ */
+
+/* Large tablets and small desktops */
+@media (max-width: 1024px) {
+  .form-container {
+    max-width: 350px;
+    padding-top: 70px;
+  }
+}
+
+/* Tablets */
+@media (max-width: 768px) {
+  .auth-wrapper { 
+    flex-direction: column; 
+    height: auto;
+    min-height: 100vh;
+  }
+  
+  .auth-left { 
+    height: 40vh; 
+    min-height: 300px;
+    background-attachment: scroll;
+    background-position: center center;
+    background-size: cover;
+  }
+  
+  .auth-right { 
+    flex: none; 
+    padding: 1rem;
+    min-height: 60vh;
+  }
+  
+  .form-container { 
+    max-width: 100%; 
+    padding-top: 70px;
+    margin-top: -30px;
+  }
+  
+  .auth-text {
+    bottom: 15px;
+    left: 15px;
+    width: calc(100% - 30px);
+  }
+  
+  .auth-logo {
+    top: 15px;
+    right: 15px;
+  }
+  
+  .auth-logo img {
+    height: 40px;
+  }
+  
+  .auth-logo.large img {
+    height: 60px;
+  }
+  
+  .auth-logo.small img {
+    height: 30px;
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 480px) {
+  .auth-wrapper {
+    flex-direction: column;
+  }
+  
+  .auth-left {
+    height: 35vh;
+    min-height: 250px;
+  }
+  
+  .auth-right {
+    padding: 0.75rem;
+  }
+  
+  .form-container {
+    padding-top: 60px;
+    margin-top: -20px;
+  }
+  
+  .form-container h2 {
+    font-size: 1.4rem;
+  }
+  
+  .social-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .social {
+    width: 100%;
+    padding: 12px;
+  }
+  
+  .auth-logo img {
+    height: 35px;
+  }
+  
+  .auth-text {
+    font-size: 0.85rem;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 360px) {
+  .auth-left {
+    height: 30vh;
+    min-height: 200px;
+  }
+  
+  .auth-left::before {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .auth-right {
+    padding: 0.5rem;
+  }
+  
+  .form-container {
+    padding-top: 50px;
+    margin-top: -10px;
+  }
+  
+  .auth-logo {
+    top: 10px;
+    right: 10px;
+  }
+  
+  .auth-logo img {
+    height: 30px;
+  }
+}

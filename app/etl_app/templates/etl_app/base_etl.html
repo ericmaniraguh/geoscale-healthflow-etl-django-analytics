@@ -1,0 +1,23 @@
+<!-- etl_app/templates/etl_app/base_etl.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ETL Platform{% endblock %} - Rwanda Health Data</title>
+    
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom ETL Dashboard CSS -->
+    <link rel="stylesheet" href="{% static 'etl_app/css/etl_dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'etl_app/css/boundaries-form.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+    <script src="{% static 'etl_app/js/boundaries-form.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

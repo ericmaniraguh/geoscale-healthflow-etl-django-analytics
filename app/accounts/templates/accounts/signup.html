@@ -1,0 +1,249 @@
+
+{% extends "accounts/base_auth.html" %}
+{% load static %}
+
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<div class="form-container signup-form">
+  <h2>Register your account</h2>
+  <p>Fill the details below to register your account.</p>
+
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+  <!-- Display Django messages -->
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="message {{ message.tags }}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    
+    {% if form.non_field_errors %}
+      <div class="error-messages">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="auth-logo">
+      <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" alt="Company Logo">
+    </div>
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="id_first_name">First name</label>
+        <input type="text" name="first_name" id="id_first_name" class="form-input" 
+               placeholder="First name  *" value="{{ form.first_name.value|default:'' }}" required>
+        {% if form.first_name.errors %}
+          <div class="field-error">{{ form.first_name.errors }}</div>
+        {% endif %}
+      </div>
+      <div class="form-field">
+        <label for="id_last_name">Last name</label>
+        <input type="text" name="last_name" id="id_last_name" class="form-input" 
+               placeholder="Last name  *" value="{{ form.last_name.value|default:'' }}" required>
+        {% if form.last_name.errors %}
+          <div class="field-error">{{ form.last_name.errors }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="id_email">Email address</label>
+      <input type="email" name="email" id="id_email" class="form-input" 
+             placeholder="Email  *" value="{{ form.email.value|default:'' }}" required>
+      {% if form.email.errors %}
+        <div class="field-error">{{ form.email.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-field">
+      <label for="id_phone_number">Phone number</label>
+      <input type="tel" name="phone_number" id="id_phone_number" class="form-input" 
+             placeholder="Phone number  *" value="{{ form.phone_number.value|default:'' }}" required>
+      {% if form.phone_number.errors %}
+        <div class="field-error">{{ form.phone_number.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-field">
+      <label for="id_username">Username</label>
+      <input type="text" name="username" id="id_username" class="form-input" 
+             placeholder="Username *" value="{{ form.username.value|default:'' }}" required>
+      {% if form.username.errors %}
+        <div class="field-error">{{ form.username.errors }}</div>
+      {% endif %}
+    </div>
+
+
+
+  <div class="form-field">
+      <label for="id_country">Country</label>
+      <select id="id_country_display" class="form-input" disabled>
+        <option selected>Rwanda</option>
+      </select>
+      <input type="hidden" name="country" value="Rwanda">
+  </div>
+
+
+    <div class="form-field">
+      <label for="id_province">Province</label>
+      <select id="id_province" name="province" class="form-input"
+              hx-get="/accounts/ajax/districts/"
+              hx-target="#district-container"
+              hx-trigger="change"
+              hx-include="[name='csrfmiddlewaretoken']">
+        <option value="">Select province</option>
+        {% for province in form.fields.province.queryset %}
+          <option value="{{ province.id }}" 
+                  {% if form.province.value == province.id|stringformat:"s" %}selected{% endif %}>
+            {{ province.name }}
+          </option>
+        {% endfor %}
+      </select>
+      {% if form.province.errors %}
+        <div class="field-error">{{ form.province.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-field" id="district-container">
+      <label for="id_district">District</label>
+      <select id="id_district" name="district" class="form-input"
+              hx-get="/accounts/ajax/sectors/"
+              hx-target="#sector-container"
+              hx-trigger="change"
+              hx-include="[name='csrfmiddlewaretoken']">
+        <option value="">Select district</option>
+        {% if form.district.queryset %}
+          {% for district in form.district.queryset %}
+            <option value="{{ district.id }}"
+                    {% if form.district.value == district.id|stringformat:"s" %}selected{% endif %}>
+              {{ district.name }}
+            </option>
+          {% endfor %}
+        {% endif %}
+      </select>
+      {% if form.district.errors %}
+        <div class="field-error">{{ form.district.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-field" id="sector-container">
+      <label for="id_sector">Sector</label>
+      <select id="id_sector" name="sector" class="form-input">
+        <option value="">Select sector</option>
+        {% if form.sector.queryset %}
+          {% for sector in form.sector.queryset %}
+            <option value="{{ sector.id }}"
+                    {% if form.sector.value == sector.id|stringformat:"s" %}selected{% endif %}>
+              {{ sector.name }}
+            </option>
+          {% endfor %}
+        {% endif %}
+      </select>
+      {% if form.sector.errors %}
+        <div class="field-error">{{ form.sector.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-field">
+      <label for="id_health_centre_name">Health centre name</label>
+      <input type="text" name="health_centre_name" id="id_health_centre_name" class="form-input" 
+             placeholder="Health centre name  *" value="{{ form.health_centre_name.value|default:'' }}" required>
+      {% if form.health_centre_name.errors %}
+        <div class="field-error">{{ form.health_centre_name.errors }}</div>
+      {% endif %}
+    </div>
+
+         <div class="form-field">
+              <label for="id_position">Position</label>
+              {{ form.position }}
+              {% if form.position.errors %}
+                <div class="field-error">{{ form.position.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-field" id="custom-position-field" style="display:none;">
+              <label for="id_custom_position">Specify Position</label>
+              {{ form.custom_position }}
+              {% if form.custom_position.errors %}
+                <div class="field-error">{{ form.custom_position.errors }}</div>
+              {% endif %}
+        </div>
+
+    <div class="form-field">
+      <label for="id_password1">Password</label>
+      <input type="password" name="password1" id="id_password1" class="form-input" 
+             placeholder="Password  *" required>
+      {% if form.password1.errors %}
+        <div class="field-error">{{ form.password1.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-field">
+      <label for="id_password2">Password confirmation</label>
+      <input type="password" name="password2" id="id_password2" class="form-input" 
+             placeholder="Confirm password  *" required>
+      {% if form.password2.errors %}
+        <div class="field-error">{{ form.password2.errors }}</div>
+      {% endif %}
+    </div>
+
+    <p class="terms">
+      By signing up, you agree to our <a href="#">Terms & Conditions</a> and <a href="#">Privacy Policy</a>.
+    </p>
+
+    <button type="submit" class="btn-primary">Create Account</button>
+
+    {% if messages %}
+  <div class="messages">
+    {% for message in messages %}
+      <div class="message {{ message.tags }}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+  </form>
+
+  <p class="alt">
+    Already have an account? <a href="{% url 'accounts:login' %}">Login</a>
+  </p>
+</div>
+
+
+<script>
+// Add error styling to fields with errors
+document.addEventListener('DOMContentLoaded', function() {
+  // Find all field errors and add error class to corresponding inputs
+  const fieldErrors = document.querySelectorAll('.field-error');
+  fieldErrors.forEach(function(error) {
+    const formField = error.closest('.form-field');
+    if (formField) {
+      const input = formField.querySelector('.form-input');
+      if (input) {
+        input.classList.add('error');
+      }
+    }
+  });
+  
+  // Auto-hide success messages after 5 seconds
+  const successMessages = document.querySelectorAll('.message.success');
+  successMessages.forEach(function(message) {
+    setTimeout(function() {
+      message.style.opacity = '0';
+      setTimeout(function() {
+        message.remove();
+      }, 300);
+    }, 5000);
+  });
+});
+</script>
+{% endblock %}
