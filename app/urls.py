@@ -1,5 +1,5 @@
 
-# 1. MAIN PROJECT URLs (main_project/urls.py) - UPDATED
+# 1. MAIN PROJECT URLs (app/urls.py) 
 # =============================================================================
 
 from django.contrib import admin
@@ -40,5 +40,9 @@ urlpatterns = [
     
     # Built-in Django auth URLs
     # path('auth/', include('django.contrib.auth.urls')),
+
+     # Analytics dashboard URLs (NEW - ADDED)
+    path('analytics_dashboard/', include('app.analytics_dashboard.urls')),
+
 ]
 
