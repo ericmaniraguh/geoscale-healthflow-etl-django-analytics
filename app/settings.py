@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'app.upload_app.apps.UploadAppConfig',
     'app.etl_app.apps.EtlAppConfig',
     'app.geospatial_merger.apps.GeospatialMergerConfig',
+    'app.analytics_dashboard.apps.AnalyticsDashboardConfig',
 ]
 
 MIDDLEWARE = [
@@ -60,7 +61,7 @@ MIDDLEWARE = [
 ]
 
 # Site ID for allauth
-SITE_ID = 1
+SITE_ID = 1 
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
@@ -75,7 +76,7 @@ AUTHENTICATION_BACKENDS = [
 # IMPORTANT: Disable allauth email verification to use our custom system
 ACCOUNT_EMAIL_VERIFICATION = "none"  # CHANGED: Use our custom verification instead
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
-
+ACCOUNT_EMAIL_REQUIRED = True
 # ================================
 # ALLAUTH SETTINGS (UPDATED - NON-DEPRECATED)
 # ================================
@@ -242,6 +243,21 @@ LOGGING = {
             'propagate': False,
         },
     },
+}
+
+# ==================================
+#  CACHING CONFIGURATION (ADDED)
+#===================================
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 3600,  # 1 hour
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
 }
 
 # ================================

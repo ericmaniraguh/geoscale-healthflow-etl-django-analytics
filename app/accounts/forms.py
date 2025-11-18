@@ -18,7 +18,8 @@ class CustomUserCreationForm(UserCreationForm):
         required=True,
         widget=forms.Select(attrs={
             "class": "input",
-            "autocomplete": "organization-title"
+            "autocomplete": "organization-title",
+            "style": "width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
         })
     )
     custom_position = forms.CharField(
@@ -99,8 +100,8 @@ class CustomUserCreationForm(UserCreationForm):
         # Default country
         self.fields["country"].initial = "Rwanda"
 
-        # Province/district/sector logic unchanged
-        self.fields["province"].queryset = Province.objects.all()
+        # ✅ OPTIMIZED: Only load provinces initially
+        self.fields["province"].queryset = Province.objects.all().only('id', 'name')
         self.fields["district"].queryset = District.objects.none()
         self.fields["sector"].queryset = Sector.objects.none()
 
@@ -116,27 +117,30 @@ class CustomUserCreationForm(UserCreationForm):
             "autocomplete": "new-password"
         })
 
+        # ✅ ONLY populate if form has data (during POST validation errors)
         if 'province' in self.data:
             try:
                 province_id = int(self.data.get('province'))
-                self.fields['district'].queryset = District.objects.filter(
-                    province_id=province_id
-                ).order_by('name')
+                self.fields['district'].queryset = (
+                    District.objects
+                    .filter(province_id=province_id)
+                    .only('id', 'name')
+                    .order_by('name')
+                )
             except (ValueError, TypeError):
                 pass
-        elif self.instance.pk:
-            self.fields['district'].queryset = self.instance.province.districts.order_by('name')
-
+        
         if 'district' in self.data:
             try:
                 district_id = int(self.data.get('district'))
-                self.fields['sector'].queryset = Sector.objects.filter(
-                    district_id=district_id
-                ).order_by('name')
+                self.fields['sector'].queryset = (
+                    Sector.objects
+                    .filter(district_id=district_id)
+                    .only('id', 'name')
+                    .order_by('name')
+                )
             except (ValueError, TypeError):
                 pass
-        elif self.instance.pk:
-            self.fields['sector'].queryset = self.instance.district.sectors.order_by('name')
 
 
 class CustomLoginForm(AuthenticationForm):

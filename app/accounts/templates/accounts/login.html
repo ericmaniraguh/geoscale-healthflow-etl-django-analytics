@@ -3,73 +3,209 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
-<!-- Logo positioned in top-right corner -->
-<div class="auth-logo">
-  <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" alt="Company Logo">
-</div>
-
-<div class="form-container">
-  <h2>Welcome</h2>
-  <p>Login to continue</p>
-
-  <!-- Display Django messages -->
-  {% if messages %}
-    <div class="messages">
-      {% for message in messages %}
-        <div class="message {{ message.tags }}">
-          {{ message }}
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
-
-  <form method="post">
-    {% csrf_token %}
+<!-- Horizontal split layout - NO SCROLLING -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; height: 100vh; width: 100vw; overflow: hidden; position: fixed; top: 0; left: 0;">
+  
+  <!-- LEFT PANEL: Illustration -->
+  <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); display: flex; align-items: center; justify-content: center; padding: 40px;">
+    <img src="{% static 'accounts/Images/geoscale-malaria-illustration.png' %}" 
+         alt="GeoScale Malaria" 
+         style="max-width: 90%; max-height: 80vh; height: auto; width: auto;"
+         onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'font-size: 120px; color: rgba(66,133,244,0.3);\'>🌍</div>';">
+  </div>
+  
+  <!-- RIGHT PANEL: Login Form -->
+  <div style="background: white; display: flex; align-items: center; justify-content: center; padding: 40px; position: relative; overflow-y: auto;">
     
-    {% if form.non_field_errors %}
-      <div class="error-messages">
-        {{ form.non_field_errors }}
+    <!-- Logo (top-right corner) -->
+    <div style="position: absolute; top: 30px; right: 40px;">
+      <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" 
+           alt="Upanzi Network" 
+           style="height: 45px; width: auto;">
+    </div>
+    
+    <!-- Form Container -->
+    <div style="max-width: 420px; width: 100%;">
+      
+      <!-- User Icon -->
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: #e8f0fe; border-radius: 50%;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4285f4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
       </div>
-    {% endif %}
 
-    <div class="form-field">
-      <label for="id_username">Username or email</label>
-      <input type="text" name="username" id="id_username" class="form-input" 
-            placeholder="Username or email *" value="{{ form.username.value|default:'' }}" 
-            autocomplete="username" required>
-      {% if form.username.errors %}
-        <div class="field-error">{{ form.username.errors }}</div>
+      <!-- Heading -->
+      <h2 style="color: #202124; font-size: 28px; font-weight: 400; margin: 0 0 8px 0; text-align: center;">
+        Welcome back
+      </h2>
+      <p style="color: #5f6368; font-size: 14px; margin: 0 0 28px 0; text-align: center;">
+        Sign in to continue to GeoScale Malaria Platform
+      </p>
+
+      <!-- Messages -->
+      {% if messages %}
+        <div style="margin-bottom: 20px;">
+          {% for message in messages %}
+            <div style="padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 14px;
+                 {% if message.tags == 'success' %}background: #e6f4ea; color: #137333; border: 1px solid #c2e7d0;
+                 {% elif message.tags == 'error' %}background: #fce8e6; color: #c5221f; border: 1px solid #f6aea9;
+                 {% else %}background: #e8f0fe; color: #1967d2; border: 1px solid #d2e3fc;{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
       {% endif %}
-    </div>
 
-    <div class="form-field">
-      <label for="id_password">Password</label>
-      <input type="password" name="password" id="id_password" class="form-input" 
-            placeholder="Your password" value="" 
-            autocomplete="current-password" required>
-      {% if form.password.errors %}
-        <div class="field-error">{{ form.password.errors }}</div>
-      {% endif %}
-    </div>
+      <!-- Login Form -->
+      <form method="post">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+          <div style="background: #fce8e6; color: #c5221f; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; border: 1px solid #f6aea9;">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
 
-    <div class="form-options">
-      <label><input type="checkbox" name="remember"> Remember Me</label>
-      <a href="#">Forgot Password?</a>
-    </div>
+        <!-- Username Field -->
+        <div style="margin-bottom: 18px;">
+          <label for="id_username" style="display: block; color: #5f6368; font-size: 14px; font-weight: 500; margin-bottom: 8px;">
+            Username or email
+          </label>
+          <input 
+            type="text" 
+            name="username" 
+            id="id_username" 
+            placeholder="Enter your username or email"
+            value="{{ form.username.value|default:'' }}" 
+            autocomplete="username" 
+            required
+            style="width: 100%; padding: 11px 14px; border: 1px solid #dadce0; border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #fff; box-sizing: border-box;"
+            onfocus="this.style.borderColor='#4285f4'; this.style.boxShadow='0 1px 6px rgba(66,133,244,0.3)';"
+            onblur="this.style.borderColor='#dadce0'; this.style.boxShadow='none';"
+          >
+          {% if form.username.errors %}
+            <div style="color: #c5221f; font-size: 12px; margin-top: 6px;">
+              {{ form.username.errors }}
+            </div>
+          {% endif %}
+        </div>
 
-    <button type="submit" class="btn-primary">Login</button>
-  </form>
+        <!-- Password Field -->
+        <div style="margin-bottom: 14px;">
+          <label for="id_password" style="display: block; color: #5f6368; font-size: 14px; font-weight: 500; margin-bottom: 8px;">
+            Password
+          </label>
+          <input 
+            type="password" 
+            name="password" 
+            id="id_password" 
+            placeholder="Enter your password"
+            autocomplete="current-password" 
+            required
+            style="width: 100%; padding: 11px 14px; border: 1px solid #dadce0; border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #fff; box-sizing: border-box;"
+            onfocus="this.style.borderColor='#4285f4'; this.style.boxShadow='0 1px 6px rgba(66,133,244,0.3)';"
+            onblur="this.style.borderColor='#dadce0'; this.style.boxShadow='none';"
+          >
+          {% if form.password.errors %}
+            <div style="color: #c5221f; font-size: 12px; margin-top: 6px;">
+              {{ form.password.errors }}
+            </div>
+          {% endif %}
+        </div>
 
-  <div class="social-login">
-    <p>or continue with</p>
+        <!-- Remember Me & Forgot Password -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <label style="display: flex; align-items: center; color: #5f6368; font-size: 13px; cursor: pointer;">
+            <input 
+              type="checkbox" 
+              name="remember" 
+              style="width: 16px; height: 16px; margin-right: 8px; cursor: pointer; accent-color: #4285f4;"
+            >
+            Remember me
+          </label>
+          <a 
+            href="{% url 'accounts:password_reset' %}" 
+            style="color: #4285f4; text-decoration: none; font-size: 13px; font-weight: 500;"
+            onmouseover="this.style.textDecoration='underline';"
+            onmouseout="this.style.textDecoration='none';"
+          >
+            Forgot password?
+          </a>
+        </div>
 
-    <div class="social-buttons">
-      <button class="social fb"><i class="bi bi-facebook"></i> Facebook</button>
-      <button class="social google"><i class="bi bi-google"></i> Google</button>
-      <button class="social linkedin"><i class="bi bi-linkedin"></i> LinkedIn</button>
+        <!-- Login Button -->
+        <button 
+          type="submit" 
+          style="width: 100%; padding: 12px 24px; background: #4285f4; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+          onmouseover="this.style.background='#1a73e8'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';"
+          onmouseout="this.style.background='#4285f4'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)';"
+        >
+          Sign in
+        </button>
+      </form>
+
+      <!-- Divider -->
+      <div style="position: relative; margin: 24px 0; text-align: center;">
+        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #e8eaed;"></div>
+        <span style="position: relative; background: white; padding: 0 16px; color: #5f6368; font-size: 13px;">
+          or continue with
+        </span>
+      </div>
+
+      <!-- Google Login Button -->
+      <button 
+        type="button"
+        style="width: 100%; padding: 10px 20px; background: #fff; color: #5f6368; border: 1px solid #dadce0; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;"
+        onmouseover="this.style.background='#f8f9fa'; this.style.borderColor='#4285f4';"
+        onmouseout="this.style.background='#fff'; this.style.borderColor='#dadce0';"
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+          <path fill="#34A853" d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.836.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.96v2.332C2.44 15.983 5.485 18 9.003 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.712c-.18-.54-.282-1.117-.282-1.71 0-.593.102-1.17.282-1.71V4.96H.957C.347 6.175 0 7.55 0 9.002c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+          <path fill="#EA4335" d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.428 0 9.002 0 5.485 0 2.44 2.017.96 4.958L3.967 7.29c.708-2.127 2.692-3.71 5.036-3.71z"/>
+        </svg>
+        Google
+      </button>
+
+      <!-- Sign Up Link -->
+      <div style="text-align: center; padding-top: 20px; margin-top: 20px; border-top: 1px solid #e8eaed;">
+        <p style="color: #5f6368; font-size: 13px; margin: 0;">
+          Don't have an account? 
+          <a 
+            href="{% url 'accounts:signup' %}" 
+            style="color: #4285f4; text-decoration: none; font-weight: 500;"
+            onmouseover="this.style.textDecoration='underline';"
+            onmouseout="this.style.textDecoration='none';"
+          >
+            Sign up
+          </a>
+        </p>
+      </div>
+      
     </div>
   </div>
-
-  <p class="alt">Don't have an account? <a href="/accounts/signup/">Sign up</a></p>
 </div>
+
+<!-- Remove all scrolling from main body -->
+<style>
+body, html {
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100vh !important;
+  width: 100vw !important;
+}
+
+input:focus {
+  outline: none;
+}
+
+input[type="checkbox"] {
+  border-radius: 3px;
+}
+</style>
 {% endblock %}
