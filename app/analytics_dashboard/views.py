@@ -1,484 +1,796 @@
-import os
-import json
-import logging
-import tempfile
-import uuid
-import threading
-from functools import wraps
-from datetime import timedelta
-from django.db import connection
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.contrib.auth import logout
-from django.core.cache import cache
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.db.models import Sum, Avg, Count, Q
-from datetime import datetime
+"""
+Enhanced Geospatial Analytics Views - Database Location Integration
+Pulls Province, District, Sector from accounts app models
 
-# Configure logging
+app/analytics_dashboard/views.py
+"""
+
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
+from django.db.models import Q, Sum, Avg
+from django.apps import apps
+import logging
+from functools import wraps
+import json
+
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# IMPORT YOUR MODELS
-# ============================================================================
-# IMPORTANT: Replace 'your_app' with your actual app name
-# Adjust these imports based on your actual models
+from .models import (
+    HealthCenterLocation,
+    MalariaAnalyticsAggregated,
+    LocationHierarchyCache,
+    DashboardCache
+)
 
-try:
-    from accounts.models import UserProfile  # Or whatever model stores location data
-    HAS_MODELS = True
-except ImportError:
-    HAS_MODELS = False
-    logger.warning("Could not import UserProfile model")
 
-# ============================================================================
-# HELPER FUNCTIONS FOR LOCATION FILTERING
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def build_location_filter(province=None, district=None, sector=None):
-    """
-    Build Q filter for Django ORM
-    Returns: Q object for filtering
-    """
+def build_location_filter(request):
+    """Build Q filter from location parameters (province, district, sector)"""
     filters = Q()
     
-    if province:
-        filters &= Q(province=province)
+    province_name = request.GET.get('province', '').strip()
+    district_name = request.GET.get('district', '').strip()
+    sector_name = request.GET.get('sector', '').strip()
     
-    if district:
-        filters &= Q(district=district)
-    
-    if sector:
-        filters &= Q(sector=sector)
+    if sector_name:
+        filters &= Q(health_centre__sector__name=sector_name)
+    elif district_name:
+        filters &= Q(health_centre__sector__district__name=district_name)
+    elif province_name:
+        filters &= Q(health_centre__sector__district__province__name=province_name)
     
     return filters
 
-def get_location_hierarchy(request):
-    """
-    Extract location parameters from request
-    Returns: (province, district, sector)
-    """
-    province = request.GET.get('province', '').strip() or None
-    district = request.GET.get('district', '').strip() or None
-    sector = request.GET.get('sector', '').strip() or None
+
+def build_year_range_filter(request):
+    """Build Q filter for year range (year_from, year_to)"""
+    filters = Q()
     
-    return province, district, sector
+    try:
+        year_from = int(request.GET.get('year_from', ''))
+        year_to = int(request.GET.get('year_to', ''))
+        
+        if year_from and year_to:
+            filters &= Q(year__gte=year_from, year__lte=year_to)
+        elif year_from:
+            filters &= Q(year__gte=year_from)
+        elif year_to:
+            filters &= Q(year__lte=year_to)
+    except (ValueError, TypeError):
+        pass
+    
+    return filters
 
-# ============================================================================
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # DECORATORS
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def cache_response(timeout=300):
-    """Cache decorator for API responses"""
-    def decorator(view_func):
-        @wraps(view_func)
+def cached_api(timeout=600):
+    """Cache API responses"""
+    def decorator(func):
+        @wraps(func)
         def wrapper(request, *args, **kwargs):
-            # Create cache key from request
-            cache_key = f"{view_func.__name__}:{request.GET.urlencode()}"
+            query_string = request.GET.urlencode()
+            cache_key = f"api_{func.__name__}_{query_string}"
             
-            # Try to get from cache
-            cached_response = cache.get(cache_key)
-            if cached_response:
-                logger.debug(f"Cache hit for {cache_key}")
-                return JsonResponse(cached_response)
+            cached_data = DashboardCache.objects.filter(cache_key=cache_key).first()
+            if cached_data and not cached_data.is_expired():
+                cached_data.cache_data['cached'] = True
+                return JsonResponse(cached_data.cache_data)
             
-            # Execute view
-            response = view_func(request, *args, **kwargs)
+            response = func(request, *args, **kwargs)
             
-            # Cache the response data
-            if isinstance(response, JsonResponse):
-                try:
-                    data = json.loads(response.content)
-                    cache.set(cache_key, data, timeout)
-                except json.JSONDecodeError:
-                    pass
+            if response.status_code == 200:
+                data = response.json()
+                DashboardCache.objects.update_or_create(
+                    cache_key=cache_key,
+                    defaults={
+                        'cache_data': data,
+                        'expires_at': __import__('django.utils.timezone', fromlist=['now']).now() + 
+                                     __import__('datetime', fromlist=['timedelta']).timedelta(seconds=timeout)
+                    }
+                )
             
             return response
         return wrapper
     return decorator
 
-def handle_errors(view_func):
-    """Error handling decorator"""
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        try:
-            return view_func(request, *args, **kwargs)
-        except Exception as e:
-            logger.exception(f"Error in {view_func.__name__}: {e}")
-            return JsonResponse({
-                "error": "Internal server error",
-                "message": str(e) if os.getenv('DEBUG') else "An error occurred"
-            }, status=500)
-    return wrapper
 
-def is_admin(user):
-    """Check if user is admin"""
-    return user.is_authenticated and (user.is_staff or user.is_superuser)
-
-# ============================================================================
-# DASHBOARD VIEW
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE VIEWS
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @login_required
-def dashboard(request):
-    """Main dashboard view - Renders analytics_dashboard.html"""
+def geospatial_dashboard(request):
+    """Main geospatial analytics dashboard"""
     context = {
+        'page_title': 'Geospatial Analytics Dashboard',
         'user': request.user,
-        'is_admin': True,
-        'page_title': 'Rwanda Malaria Surveillance Dashboard',
-        'api_url': request.build_absolute_uri('/analytics_dashboard/api/')
     }
-    return render(request, 'analytics_dashboard/analytics_dashboard.html', context)
+    return render(request, 'analytics_dashboard/geospatial_dashboard.html', context)
 
-# ============================================================================
-# LOCATION METADATA APIs
-# ============================================================================
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FILTER ENDPOINTS - DATABASE INTEGRATION
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @login_required
 @require_http_methods(["GET"])
-@handle_errors
-def get_provinces(request):
-    """Get list of all provinces from Django database"""
-    if not HAS_MODELS:
-        return JsonResponse({"provinces": [], "error": "Models not available"})
-    
+@cached_api(timeout=3600)
+def get_filter_options(request):
+    """
+    Get all available filter options from DATABASE (not hardcoded)
+    Uses accounts app models: Province, District, Sector
+    """
     try:
-        provinces = UserProfile.objects.filter(
-            province__isnull=False
-        ).values_list('province', flat=True).distinct().order_by('province')
+        # Get models from accounts app
+        Province = apps.get_model('accounts', 'Province')
+        District = apps.get_model('accounts', 'District')
+        Sector = apps.get_model('accounts', 'Sector')
         
-        return JsonResponse({"provinces": list(provinces)})
+        # Get all provinces from database
+        provinces = list(
+            Province.objects.all()
+            .values_list('name', flat=True)
+            .order_by('name')
+        )
+        
+        logger.info(f"Loaded {len(provinces)} provinces from database")
+        
+        # Get districts organized by province
+        districts = {}
+        for province_name in provinces:
+            try:
+                province = Province.objects.get(name=province_name)
+                dists = list(
+                    District.objects.filter(province=province)
+                    .values_list('name', flat=True)
+                    .order_by('name')
+                )
+                districts[province_name] = dists
+            except Province.DoesNotExist:
+                logger.warning(f"Province not found: {province_name}")
+                districts[province_name] = []
+        
+        # Get sectors organized by district
+        sectors = {}
+        for province_name in provinces:
+            try:
+                province = Province.objects.get(name=province_name)
+                for dist_name in districts.get(province_name, []):
+                    try:
+                        district = District.objects.get(province=province, name=dist_name)
+                        sects = list(
+                            Sector.objects.filter(district=district)
+                            .values_list('name', flat=True)
+                            .order_by('name')
+                        )
+                        sectors[dist_name] = sects
+                    except District.DoesNotExist:
+                        logger.warning(f"District not found: {dist_name}")
+                        sectors[dist_name] = []
+            except Province.DoesNotExist:
+                pass
+        
+        # Get available years from analytics data
+        years = list(
+            MalariaAnalyticsAggregated.objects
+            .values_list('year', flat=True)
+            .distinct()
+            .order_by('-year')
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'provinces': provinces,
+            'districts': districts,
+            'sectors': sectors,
+            'years': years,
+            'months': list(range(1, 13)),
+            'source': 'database'  # Indicate data comes from database
+        })
+    
     except Exception as e:
-        logger.error(f"Error getting provinces: {e}")
-        return JsonResponse({"provinces": []})
+        logger.error(f"Error fetching filter options from database: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'source': 'database'
+        }, status=500)
+
 
 @login_required
 @require_http_methods(["GET"])
-@handle_errors
+@cached_api(timeout=600)
 def get_districts(request):
-    """Get districts, optionally filtered by province"""
-    if not HAS_MODELS:
-        return JsonResponse({"districts": []})
+    """Get districts for selected province from DATABASE"""
+    province_name = request.GET.get('province', '').strip()
     
-    province = request.GET.get('province', '').strip()
+    if not province_name:
+        return JsonResponse({
+            'success': False,
+            'error': 'Province parameter required'
+        }, status=400)
     
     try:
-        query = UserProfile.objects.filter(district__isnull=False)
+        Province = apps.get_model('accounts', 'Province')
+        District = apps.get_model('accounts', 'District')
         
-        if province:
-            query = query.filter(province=province)
+        # Get province from database
+        province = Province.objects.filter(name=province_name).first()
+        if not province:
+            return JsonResponse({
+                'success': False,
+                'error': f'Province {province_name} not found in database'
+            }, status=404)
         
-        districts = query.values_list('district', flat=True).distinct().order_by('district')
+        # Get districts for this province
+        districts = list(
+            District.objects
+            .filter(province=province)
+            .values_list('name', flat=True)
+            .order_by('name')
+        )
         
-        return JsonResponse({"districts": list(districts)})
+        logger.info(f"Loaded {len(districts)} districts for province: {province_name}")
+        
+        return JsonResponse({
+            'success': True,
+            'province': province_name,
+            'districts': districts,
+            'count': len(districts),
+            'source': 'database'
+        })
+    
     except Exception as e:
-        logger.error(f"Error getting districts: {e}")
-        return JsonResponse({"districts": []})
+        logger.error(f"Error fetching districts from database: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'source': 'database'
+        }, status=500)
+
 
 @login_required
 @require_http_methods(["GET"])
-@handle_errors
+@cached_api(timeout=600)
 def get_sectors(request):
-    """Get sectors, optionally filtered by province and/or district"""
-    if not HAS_MODELS:
-        return JsonResponse({"sectors": []})
+    """Get sectors for selected district from DATABASE"""
+    province_name = request.GET.get('province', '').strip()
+    district_name = request.GET.get('district', '').strip()
     
-    province = request.GET.get('province', '').strip()
-    district = request.GET.get('district', '').strip()
+    if not province_name or not district_name:
+        return JsonResponse({
+            'success': False,
+            'error': 'Province and district parameters required'
+        }, status=400)
     
     try:
-        query = UserProfile.objects.filter(sector__isnull=False)
+        Province = apps.get_model('accounts', 'Province')
+        District = apps.get_model('accounts', 'District')
+        Sector = apps.get_model('accounts', 'Sector')
         
-        if province:
-            query = query.filter(province=province)
+        # Get province from database
+        province = Province.objects.filter(name=province_name).first()
+        if not province:
+            return JsonResponse({'success': False, 'error': 'Province not found'}, status=404)
         
-        if district:
-            query = query.filter(district=district)
+        # Get district from database
+        district = District.objects.filter(province=province, name=district_name).first()
+        if not district:
+            return JsonResponse({'success': False, 'error': 'District not found'}, status=404)
         
-        sectors = query.values_list('sector', flat=True).distinct().order_by('sector')
+        # Get sectors for this district
+        sectors = list(
+            Sector.objects
+            .filter(district=district)
+            .values_list('name', flat=True)
+            .order_by('name')
+        )
         
-        return JsonResponse({"sectors": list(sectors)})
+        logger.info(f"Loaded {len(sectors)} sectors for district: {district_name}")
+        
+        return JsonResponse({
+            'success': True,
+            'province': province_name,
+            'district': district_name,
+            'sectors': sectors,
+            'count': len(sectors),
+            'source': 'database'
+        })
+    
     except Exception as e:
-        logger.error(f"Error getting sectors: {e}")
-        return JsonResponse({"sectors": []})
+        logger.error(f"Error fetching sectors from database: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'source': 'database'
+        }, status=500)
 
-# ============================================================================
-# DASHBOARD KPI APIS
-# ============================================================================
 
 @login_required
 @require_http_methods(["GET"])
-@cache_response(timeout=300)
-@handle_errors
-def get_kpi_data(request):
-    """Get Key Performance Indicators"""
-    if not HAS_MODELS:
-        return JsonResponse({
-            "total_tests": 0,
-            "total_positive": 0,
-            "total_negative": 0,
-            "avg_positivity_rate": 0,
-            "positive_change": "0%",
-            "negative_change": "0%"
-        })
+@cached_api(timeout=600)
+def get_health_centres(request):
+    """Get health centres for selected sector from DATABASE"""
+    province_name = request.GET.get('province', '').strip()
+    district_name = request.GET.get('district', '').strip()
+    sector_name = request.GET.get('sector', '').strip()
     
-    province, district, sector = get_location_hierarchy(request)
-    filters = build_location_filter(province, district, sector)
+    if not all([province_name, district_name, sector_name]):
+        return JsonResponse({
+            'success': False,
+            'error': 'Province, district, and sector parameters required'
+        }, status=400)
     
     try:
-        # Get counts from UserProfile or your data model
-        total_users = UserProfile.objects.filter(filters).count()
+        Province = apps.get_model('accounts', 'Province')
+        District = apps.get_model('accounts', 'District')
+        Sector = apps.get_model('accounts', 'Sector')
         
-        # If you have health data in a separate model, query that instead
-        # Example: health_data = HealthData.objects.filter(filters).aggregate(...)
+        # Navigate hierarchy from database
+        province = Province.objects.filter(name=province_name).first()
+        if not province:
+            return JsonResponse({'success': False, 'error': 'Province not found'}, status=404)
+        
+        district = District.objects.filter(province=province, name=district_name).first()
+        if not district:
+            return JsonResponse({'success': False, 'error': 'District not found'}, status=404)
+        
+        sector = Sector.objects.filter(district=district, name=sector_name).first()
+        if not sector:
+            return JsonResponse({'success': False, 'error': 'Sector not found'}, status=404)
+        
+        # Get health centres from this sector
+        health_centres = list(
+            HealthCenterLocation.objects
+            .filter(sector=sector, is_active=True)
+            .values('id', 'code', 'name')
+            .order_by('name')
+        )
+        
+        logger.info(f"Loaded {len(health_centres)} health centres for sector: {sector_name}")
         
         return JsonResponse({
-            "total_tests": total_users,
-            "total_positive": int(total_users * 0.15),  # Placeholder calculation
-            "total_negative": int(total_users * 0.85),
-            "avg_positivity_rate": 15.0,
-            "positive_change": "5.2%",
-            "negative_change": "-3.1%"
+            'success': True,
+            'province': province_name,
+            'district': district_name,
+            'sector': sector_name,
+            'health_centres': health_centres,
+            'count': len(health_centres),
+            'source': 'database'
         })
+    
     except Exception as e:
-        logger.error(f"Error getting KPI data: {e}")
+        logger.error(f"Error fetching health centres from database: {e}")
         return JsonResponse({
-            "total_tests": 0,
-            "total_positive": 0,
-            "total_negative": 0,
-            "avg_positivity_rate": 0,
-            "positive_change": "0%",
-            "negative_change": "0%"
-        })
+            'success': False,
+            'error': str(e),
+            'source': 'database'
+        }, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUMMARY STATISTICS
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @login_required
 @require_http_methods(["GET"])
-@cache_response(timeout=300)
-@handle_errors
+@cached_api(timeout=300)
+def get_summary_stats(request):
+    """Get summary statistics with year range filtering"""
+    try:
+        location_filter = build_location_filter(request)
+        year_filter = build_year_range_filter(request)
+        
+        combined_filter = location_filter & year_filter
+        
+        stats = MalariaAnalyticsAggregated.objects \
+            .filter(combined_filter) \
+            .aggregate(
+                total_tests=Sum('total_tests'),
+                positive_cases=Sum('positive_cases'),
+                negative_cases=Sum('negative_cases'),
+            )
+        
+        total_tests = stats['total_tests'] or 0
+        positive_cases = stats['positive_cases'] or 0
+        
+        positivity_rate = (positive_cases / total_tests * 100) if total_tests > 0 else 0
+        
+        # Count unique health centres
+        health_centres_count = HealthCenterLocation.objects \
+            .filter(combined_filter if combined_filter else Q()) \
+            .distinct().count()
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'total_tests': total_tests,
+                'positive_cases': positive_cases,
+                'negative_cases': stats['negative_cases'] or 0,
+                'positivity_rate': round(positivity_rate, 2),
+                'health_centres_count': health_centres_count,
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Error fetching summary stats: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GEOSPATIAL DATA
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@login_required
+@require_http_methods(["GET"])
+@cached_api(timeout=600)
+def get_map_data(request):
+    """Get map data with year range filtering"""
+    try:
+        location_filter = build_location_filter(request)
+        year_filter = build_year_range_filter(request)
+        combined_filter = location_filter & year_filter
+        
+        # Get aggregated analytics
+        analytics_data = MalariaAnalyticsAggregated.objects \
+            .filter(combined_filter) \
+            .values('health_centre_id') \
+            .annotate(
+                total_tests=Sum('total_tests'),
+                positive_cases=Sum('positive_cases'),
+                avg_positivity=Avg('positivity_rate'),
+            )
+        
+        analytics_lookup = {
+            item['health_centre_id']: item 
+            for item in analytics_data
+        }
+        
+        # Get health centres
+        health_centres = HealthCenterLocation.objects \
+            .filter(is_active=True) \
+            .values('id', 'code', 'name', 'latitude', 'longitude')
+        
+        features = []
+        for hc in health_centres:
+            if hc['id'] not in analytics_lookup:
+                continue
+            
+            analytics = analytics_lookup[hc['id']]
+            
+            feature = {
+                'type': 'Feature',
+                'id': hc['code'],
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [hc['longitude'], hc['latitude']]
+                },
+                'properties': {
+                    'name': hc['name'],
+                    'code': hc['code'],
+                    'total_tests': analytics['total_tests'] or 0,
+                    'positive_cases': analytics['positive_cases'] or 0,
+                    'positivity_rate': analytics['avg_positivity'] or 0,
+                }
+            }
+            features.append(feature)
+        
+        return JsonResponse({
+            'success': True,
+            'type': 'FeatureCollection',
+            'features': features,
+            'count': len(features)
+        })
+    
+    except Exception as e:
+        logger.error(f"Error fetching map data: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+@cached_api(timeout=600)
+def get_slope_map_data(request):
+    """Get slope-based map visualization"""
+    try:
+        location_filter = build_location_filter(request)
+        year_filter = build_year_range_filter(request)
+        combined_filter = location_filter & year_filter
+        
+        analytics_data = MalariaAnalyticsAggregated.objects \
+            .filter(combined_filter) \
+            .values('health_centre_id') \
+            .annotate(
+                total_tests=Sum('total_tests'),
+                positive_cases=Sum('positive_cases'),
+                avg_positivity=Avg('positivity_rate'),
+            )
+        
+        analytics_lookup = {
+            item['health_centre_id']: item 
+            for item in analytics_data
+        }
+        
+        health_centres = HealthCenterLocation.objects \
+            .filter(is_active=True) \
+            .values('id', 'code', 'name', 'latitude', 'longitude', 'slope_percent')
+        
+        features = []
+        for hc in health_centres:
+            if hc['id'] not in analytics_lookup:
+                continue
+            
+            slope = hc['slope_percent'] or 0
+            
+            # Color by slope
+            if slope < 5:
+                color = '#27ae60'
+            elif slope < 15:
+                color = '#f39c12'
+            elif slope < 30:
+                color = '#e67e22'
+            else:
+                color = '#e74c3c'
+            
+            feature = {
+                'type': 'Feature',
+                'id': hc['code'],
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [hc['longitude'], hc['latitude']]
+                },
+                'properties': {
+                    'name': hc['name'],
+                    'code': hc['code'],
+                    'slope_percent': slope,
+                    'color': color,
+                }
+            }
+            features.append(feature)
+        
+        return JsonResponse({
+            'success': True,
+            'type': 'FeatureCollection',
+            'features': features,
+            'count': len(features),
+            'slope_classes': {
+                '0-5%': 'Level',
+                '5-15%': 'Gently sloping',
+                '15-30%': 'Moderately sloping',
+                '>30%': 'Steeply sloping'
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Error fetching slope map data: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANALYSIS ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@login_required
+@require_http_methods(["GET"])
+@cached_api(timeout=600)
 def get_gender_analysis(request):
-    """Get gender-based analysis"""
-    if not HAS_MODELS:
-        return JsonResponse({"labels": [], "2021": [], "2022": [], "2023": []})
-    
-    province, district, sector = get_location_hierarchy(request)
-    filters = build_location_filter(province, district, sector)
-    
+    """Get gender-based analysis with year range filtering"""
     try:
-        # Get gender distribution from UserProfile
-        gender_data = UserProfile.objects.filter(filters).values('gender').annotate(
-            count=Count('id')
-        ).order_by('-count')
+        location_filter = build_location_filter(request)
+        year_filter = build_year_range_filter(request)
+        combined_filter = location_filter & year_filter
         
-        labels = [item['gender'] for item in gender_data if item['gender']]
+        gender_data = MalariaAnalyticsAggregated.objects \
+            .filter(combined_filter) \
+            .aggregate(
+                female_tests=Sum('female_tests'),
+                female_positive=Sum('female_positive'),
+                male_tests=Sum('male_tests'),
+                male_positive=Sum('male_positive'),
+            )
         
-        if not labels:
-            return JsonResponse({"labels": [], "2021": [], "2022": [], "2023": []})
+        female_tests = gender_data['female_tests'] or 0
+        female_positive = gender_data['female_positive'] or 0
+        male_tests = gender_data['male_tests'] or 0
+        male_positive = gender_data['male_positive'] or 0
         
-        # Generate trend data
-        values_2021 = [item['count'] * 0.8 for item in gender_data]
-        values_2022 = [item['count'] * 0.9 for item in gender_data]
-        values_2023 = [item['count'] for item in gender_data]
+        female_rate = (female_positive / female_tests * 100) if female_tests > 0 else 0
+        male_rate = (male_positive / male_tests * 100) if male_tests > 0 else 0
         
         return JsonResponse({
-            "labels": labels,
-            "2021": values_2021,
-            "2022": values_2022,
-            "2023": values_2023
+            'success': True,
+            'data': {
+                'female': {
+                    'total_tests': female_tests,
+                    'positive': female_positive,
+                    'positivity_rate': round(female_rate, 2)
+                },
+                'male': {
+                    'total_tests': male_tests,
+                    'positive': male_positive,
+                    'positivity_rate': round(male_rate, 2)
+                }
+            }
         })
+    
     except Exception as e:
-        logger.error(f"Error getting gender analysis: {e}")
-        return JsonResponse({"labels": [], "2021": [], "2022": [], "2023": []})
+        logger.error(f"Error fetching gender analysis: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
 
 @login_required
 @require_http_methods(["GET"])
-@cache_response(timeout=300)
-@handle_errors
-def get_precipitation_data(request):
-    """Get monthly precipitation data"""
-    # Sample data - integrate with actual weather data model if available
-    labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    sample_data = [120, 80, 95, 110, 75, 60, 45, 55, 85, 105, 130, 140]
-    
-    return JsonResponse({
-        "labels": labels,
-        "2021": sample_data,
-        "2022": [x * 1.1 for x in sample_data],
-        "2023": [x * 0.9 for x in sample_data]
-    })
-
-@login_required
-@require_http_methods(["GET"])
-@cache_response(timeout=300)
-@handle_errors
-def get_monthly_trend(request):
-    """Get monthly positivity trend"""
-    labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    
-    return JsonResponse({
-        "labels": labels,
-        "2021": [4.5, 4.8, 5.2, 5.6, 6.1, 6.5, 6.2, 5.8, 5.3, 4.9, 4.6, 4.3],
-        "2022": [4.2, 4.5, 4.9, 5.3, 5.8, 6.2, 5.9, 5.5, 5.0, 4.6, 4.3, 4.0],
-        "2023": [3.8, 4.1, 4.5, 4.9, 5.4, 5.8, 5.5, 5.1, 4.6, 4.2, 3.9, 3.6]
-    })
-
-@login_required
-@require_http_methods(["GET"])
-@cache_response(timeout=300)
-@handle_errors
-def get_villages_data(request):
-    """Get village-level statistics"""
-    if not HAS_MODELS:
-        return JsonResponse({"villages": []})
-    
-    province, district, sector = get_location_hierarchy(request)
-    filters = build_location_filter(province, district, sector)
-    
+@cached_api(timeout=600)
+def get_temporal_trends(request):
+    """Get temporal trends with year range filtering"""
     try:
-        # Get village statistics
-        villages_data = UserProfile.objects.filter(filters).values('health_centre').annotate(
-            total_tests=Count('id'),
-            positivity_rate=Avg('id')  # Placeholder
-        ).order_by('-positivity_rate')[:20]
+        location_filter = build_location_filter(request)
+        year_filter = build_year_range_filter(request)
+        combined_filter = location_filter & year_filter
         
-        villages = []
-        for item in villages_data:
-            if item['health_centre']:
-                villages.append({
-                    "village": item['health_centre'],
-                    "tests": item['total_tests'],
-                    "positive": int(item['total_tests'] * 0.15),
-                    "rate": 15.0,
-                    "year": 2023
+        trend_type = request.GET.get('type', 'yearly').strip()
+        
+        month_names = {
+            1: 'January', 2: 'February', 3: 'March', 4: 'April',
+            5: 'May', 6: 'June', 7: 'July', 8: 'August',
+            9: 'September', 10: 'October', 11: 'November', 12: 'December'
+        }
+        
+        if trend_type == 'monthly':
+            trends = MalariaAnalyticsAggregated.objects \
+                .filter(combined_filter) \
+                .values('year', 'month') \
+                .annotate(
+                    total_tests=Sum('total_tests'),
+                    positive_cases=Sum('positive_cases'),
+                    avg_positivity=Avg('positivity_rate'),
+                ) \
+                .order_by('year', 'month')
+            
+            data = []
+            for trend in trends:
+                positive = trend['positive_cases'] or 0
+                tests = trend['total_tests'] or 0
+                rate = (positive / tests * 100) if tests > 0 else 0
+                
+                data.append({
+                    'year': trend['year'],
+                    'month': trend['month'],
+                    'month_name': month_names.get(trend['month'], ''),
+                    'total_tests': tests,
+                    'positive_cases': positive,
+                    'positivity_rate': round(rate, 2)
                 })
         
-        return JsonResponse({"villages": villages})
-    except Exception as e:
-        logger.error(f"Error getting villages data: {e}")
-        return JsonResponse({"villages": []})
-
-@login_required
-@require_http_methods(["GET"])
-@cache_response(timeout=300)
-@handle_errors
-def get_location_summary(request):
-    """Get summary statistics by location"""
-    if not HAS_MODELS:
-        return JsonResponse({"group_by": "district", "summary": []})
-    
-    group_by = request.GET.get('group_by', 'district')
-    province, district, sector = get_location_hierarchy(request)
-    filters = build_location_filter(province, district, sector)
-    
-    try:
-        # Build aggregation based on group_by parameter
-        if group_by == 'district':
-            summary_data = UserProfile.objects.filter(filters).values('district').annotate(
-                total_tests=Count('id'),
-                num_villages=Count('health_centre', distinct=True)
-            ).order_by('-total_tests')
+        else:  # yearly
+            trends = MalariaAnalyticsAggregated.objects \
+                .filter(combined_filter) \
+                .values('year') \
+                .annotate(
+                    total_tests=Sum('total_tests'),
+                    positive_cases=Sum('positive_cases'),
+                    avg_positivity=Avg('positivity_rate'),
+                ) \
+                .order_by('-year')
             
-            location_field = 'district'
-        elif group_by == 'sector':
-            summary_data = UserProfile.objects.filter(filters).values('sector').annotate(
-                total_tests=Count('id'),
-                num_villages=Count('health_centre', distinct=True)
-            ).order_by('-total_tests')
-            
-            location_field = 'sector'
-        else:  # province
-            summary_data = UserProfile.objects.filter(filters).values('province').annotate(
-                total_tests=Count('id'),
-                num_villages=Count('health_centre', distinct=True)
-            ).order_by('-total_tests')
-            
-            location_field = 'province'
-        
-        summary = []
-        for item in summary_data:
-            if item[location_field]:
-                summary.append({
-                    "location": item[location_field],
-                    "total_tests": item['total_tests'],
-                    "total_positive": int(item['total_tests'] * 0.15),
-                    "total_negative": int(item['total_tests'] * 0.85),
-                    "avg_positivity_rate": 15.0,
-                    "num_villages": item['num_villages']
+            data = []
+            for trend in trends:
+                positive = trend['positive_cases'] or 0
+                tests = trend['total_tests'] or 0
+                rate = (positive / tests * 100) if tests > 0 else 0
+                
+                data.append({
+                    'year': trend['year'],
+                    'total_tests': tests,
+                    'positive_cases': positive,
+                    'positivity_rate': round(rate, 2)
                 })
         
         return JsonResponse({
-            "group_by": group_by,
-            "summary": summary
+            'success': True,
+            'type': trend_type,
+            'data': data,
+            'count': len(data)
         })
+    
     except Exception as e:
-        logger.error(f"Error getting location summary: {e}")
-        return JsonResponse({"group_by": group_by, "summary": []})
+        logger.error(f"Error fetching temporal trends: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
-# ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
-
-@login_required
-@require_http_methods(["GET"])
-@handle_errors
-def refresh_data(request):
-    """Refresh data cache"""
-    # Clear all dashboard cache keys
-    cache_pattern = 'analytics_dashboard_*'
-    # Note: Simple implementation, Django cache backend dependent
-    
-    return JsonResponse({
-        'status': 'success',
-        'message': 'Data cache refreshed successfully'
-    })
 
 @login_required
 @require_http_methods(["GET"])
-@handle_errors
-def export_data(request):
-    """Export data as JSON"""
-    export_format = request.GET.get('format', 'json')
+@cached_api(timeout=600)
+def get_environmental_data(request):
+    """Get environmental data (temperature, precipitation) with year range filtering"""
+    try:
+        location_filter = build_location_filter(request)
+        year_filter = build_year_range_filter(request)
+        combined_filter = location_filter & year_filter
+        
+        # Get aggregated environmental data by month
+        env_data = MalariaAnalyticsAggregated.objects \
+            .filter(combined_filter) \
+            .values('month') \
+            .annotate(
+                avg_temperature=Avg('temperature_avg'),
+                avg_precipitation=Avg('precipitation_mm'),
+            ) \
+            .order_by('month')
+        
+        month_names = {
+            1: 'January', 2: 'February', 3: 'March', 4: 'April',
+            5: 'May', 6: 'June', 7: 'July', 8: 'August',
+            9: 'September', 10: 'October', 11: 'November', 12: 'December'
+        }
+        
+        data = []
+        for item in env_data:
+            if item['month']:
+                data.append({
+                    'month': item['month'],
+                    'month_name': month_names.get(item['month'], ''),
+                    'temperature_avg': round(item['avg_temperature'] or 0, 2),
+                    'precipitation_mm': round(item['avg_precipitation'] or 0, 2),
+                })
+        
+        return JsonResponse({
+            'success': True,
+            'data': data,
+            'count': len(data)
+        })
     
-    # Get all data
-    kpi_response = get_kpi_data(request)
-    kpi_data = json.loads(kpi_response.content)
-    
-    gender_response = get_gender_analysis(request)
-    gender_data = json.loads(gender_response.content)
-    
-    villages_response = get_villages_data(request)
-    villages_data = json.loads(villages_response.content)
-    
-    export_data = {
-        'kpi': kpi_data,
-        'gender_analysis': gender_data,
-        'villages': villages_data,
-        'exported_at': datetime.now().isoformat()
-    }
-    
-    if export_format == 'csv':
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="malaria_data_export.csv"'
-        # Add CSV writing logic here
-        return response
-    else:
-        return JsonResponse(export_data)
+    except Exception as e:
+        logger.error(f"Error fetching environmental data: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CACHE MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @login_required
-def check_admin_status(request):
-    """Check if user is admin"""
-    return JsonResponse({"is_admin": is_admin(request.user)})
-
-@login_required
-@csrf_exempt
-def logout_user(request):
-    """Logout user"""
-    if request.method == "POST":
-        logout(request)
-        return JsonResponse({"success": True, "redirect": "/auth/login/"})
-    return JsonResponse({"success": False}, status=405)
+@require_http_methods(["POST"])
+def clear_dashboard_cache(request):
+    """Clear all dashboard caches"""
+    try:
+        DashboardCache.objects.all().delete()
+        logger.info("Dashboard cache cleared")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Cache cleared successfully'
+        })
+    
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

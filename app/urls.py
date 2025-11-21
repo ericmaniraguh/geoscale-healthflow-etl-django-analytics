@@ -42,7 +42,7 @@ urlpatterns = [
     # path('auth/', include('django.contrib.auth.urls')),
 
      # Analytics dashboard URLs (NEW - ADDED)
-    path('analytics_dashboard/', include('app.analytics_dashboard.urls')),
+    path('analytics/', include('app.analytics_dashboard.urls')),
 
 ]
 

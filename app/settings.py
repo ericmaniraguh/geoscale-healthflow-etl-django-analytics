@@ -23,6 +23,7 @@ ALLOWED_HOSTS = ['*'] if DEBUG else ['your-domain.com']
 # ================================
 
 INSTALLED_APPS = [
+     'app', 
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -45,7 +46,7 @@ INSTALLED_APPS = [
     'app.upload_app.apps.UploadAppConfig',
     'app.etl_app.apps.EtlAppConfig',
     'app.geospatial_merger.apps.GeospatialMergerConfig',
-    'app.analytics_dashboard.apps.AnalyticsDashboardConfig',
+    'app.analytics_dashboard',
 ]
 
 MIDDLEWARE = [

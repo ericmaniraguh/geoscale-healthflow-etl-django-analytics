@@ -1,29 +1,9 @@
-# """
-# Analytics Dashboard URLs
-# app/analytics_dashboard/urls.py
-
-# """
-
-# from django.urls import path
-# from . import views
-
-# app_name = 'analytics_dashboard'
-
-# urlpatterns = [
-#     # Main Dashboard View
-#     path('', views.dashboard, name='dashboard'),
-    
-#     # API Endpoints for Dashboard Data
-#     path('api/kpi/', views.get_kpi_data, name='api_kpi'),
-#     path('api/gender/', views.get_gender_analysis, name='api_gender'),
-#     path('api/precipitation/', views.get_precipitation_data, name='api_precipitation'),
-#     path('api/monthly-trend/', views.get_monthly_trend, name='api_monthly_trend'),
-#     path('api/villages/', views.get_villages_data, name='api_villages'),
-    
-#     # Additional API endpoints (if needed)
-#     path('api/refresh/', views.refresh_data, name='api_refresh'),
-#     path('api/export/', views.export_data, name='api_export'),
-# ]
+"""
+Django URLs Configuration - Enhanced
+Rwanda Malaria Surveillance Dashboard with Geospatial Analysis
+Integrates Airflow data pipeline with mapping and clustering
+Year Range Filtering Support
+"""
 
 from django.urls import path
 from . import views
@@ -31,25 +11,55 @@ from . import views
 app_name = 'analytics_dashboard'
 
 urlpatterns = [
-    # Main Dashboard View
-    path('', views.dashboard, name='dashboard'),
+    # ===== MAIN DASHBOARD VIEW =====
+    path('', views.geospatial_dashboard, name='dashboard'),
     
-    # NEW: Location metadata endpoints
-    path('api/locations/provinces/', views.get_provinces, name='api_provinces'),
-    path('api/locations/districts/', views.get_districts, name='api_districts'),
-    path('api/locations/sectors/', views.get_sectors, name='api_sectors'),
+    # ===== LOCATION FILTERING APIS =====
+    path('api/filters/', 
+         views.get_filter_options, 
+         name='api_filters'),
     
-    # API Endpoints for Dashboard Data
-    path('api/kpi/', views.get_kpi_data, name='api_kpi'),
-    path('api/gender/', views.get_gender_analysis, name='api_gender'),
-    path('api/precipitation/', views.get_precipitation_data, name='api_precipitation'),
-    path('api/monthly-trend/', views.get_monthly_trend, name='api_monthly_trend'),
-    path('api/villages/', views.get_villages_data, name='api_villages'),
+    path('api/districts/', 
+         views.get_districts, 
+         name='api_districts'),
     
-    # NEW: Location summary endpoint
-    path('api/location-summary/', views.get_location_summary, name='api_location_summary'),
+    path('api/sectors/', 
+         views.get_sectors, 
+         name='api_sectors'),
     
-    # Additional API endpoints
-    path('api/refresh/', views.refresh_data, name='api_refresh'),
-    path('api/export/', views.export_data, name='api_export'),
+    path('api/health-centres/', 
+         views.get_health_centres, 
+         name='api_health_centres'),
+    
+    # ===== SUMMARY STATISTICS =====
+    path('api/summary/', 
+         views.get_summary_stats, 
+         name='api_summary'),
+    
+    # ===== GEOSPATIAL DATA FOR MAPS =====
+    path('api/map/', 
+         views.get_map_data, 
+         name='api_map'),
+    
+    path('api/slope-map/', 
+         views.get_slope_map_data, 
+         name='api_slope_map'),
+    
+    # ===== ANALYSIS ENDPOINTS =====
+    path('api/gender/', 
+         views.get_gender_analysis, 
+         name='api_gender'),
+    
+    path('api/trends/', 
+         views.get_temporal_trends, 
+         name='api_trends'),
+    
+    path('api/environmental/', 
+         views.get_environmental_data, 
+         name='api_environmental'),
+    
+    # ===== CACHE MANAGEMENT =====
+    path('api/cache/clear/', 
+         views.clear_dashboard_cache, 
+         name='api_cache_clear'),
 ]

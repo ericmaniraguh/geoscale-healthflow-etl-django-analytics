@@ -15,7 +15,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.core.cache import cache  # ✅ ADD THIS IMPORT
+from django.core.cache import cache  #  ADD THIS IMPORT
 import logging
 import os
 import random
@@ -31,7 +31,7 @@ from django.contrib.auth.views import (
 from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
 
 from .forms import CustomUserCreationForm
-from .models import CustomUser, District, Sector, Province  # ✅ ADD Province
+from .models import CustomUser, District, Sector, Province  # ADD Province
 
 logger = logging.getLogger(__name__)
 
@@ -159,12 +159,12 @@ Powered by Upanzi Network
         )
         
         logger.info(f"Email sent to {user_email}. Result: {result}")
-        print(f"✅ Email sent successfully to {user_email}")
+        print(f" Email sent successfully to {user_email}")
         return result == 1
         
     except Exception as e:
         logger.error(f"Failed to send OTP email to {user_email}: {str(e)}")
-        print(f"❌ Email error: {str(e)}")
+        print(f" Email error: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
