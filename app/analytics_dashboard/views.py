@@ -1,0 +1,844 @@
+import os
+import json
+import logging
+import tempfile
+import uuid
+import threading
+from functools import wraps
+from datetime import timedelta
+from django.db import connection
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth import logout
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.db.models import Sum, Avg, Count, Q
+from django.db.models import Sum, Avg, Count, Q
+from datetime import datetime
+from pymongo import MongoClient
+from django.conf import settings
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# ============================================================================
+# IMPORT YOUR MODELS
+# ============================================================================
+# IMPORTANT: Replace 'your_app' with your actual app name
+# Adjust these imports based on your actual models
+
+try:
+    from accounts.models import UserProfile  # Or whatever model stores location data
+    HAS_MODELS = True
+except ImportError:
+    HAS_MODELS = False
+    logger.warning("Could not import UserProfile model")
+
+# ============================================================================
+# HELPER FUNCTIONS FOR LOCATION FILTERING
+# ============================================================================
+
+def build_location_filter(province=None, district=None, sector=None):
+    """
+    Build Q filter for Django ORM
+    Returns: Q object for filtering
+    """
+    filters = Q()
+    
+    if province:
+        filters &= Q(province=province)
+    
+    if district:
+        filters &= Q(district=district)
+    
+    if sector:
+        filters &= Q(sector=sector)
+    
+    return filters
+
+def get_location_hierarchy(request):
+    """
+    Extract location parameters from request
+    Returns: (province, district, sector)
+    """
+    province = request.GET.get('province', '').strip() or None
+    district = request.GET.get('district', '').strip() or None
+    sector = request.GET.get('sector', '').strip() or None
+    
+    return province, district, sector
+
+def get_year_filter(request):
+    """
+    Extract year parameter from request
+    Returns: list of years (e.g., [2021, 2022]) or None if all
+    """
+    years_str = request.GET.get('years', '').strip()
+    if years_str:
+        try:
+            return [int(y) for y in years_str.split(',') if y.strip()]
+        except ValueError:
+            pass
+    return None
+
+# ============================================================================
+# DECORATORS
+# ============================================================================
+
+def cache_response(timeout=300):
+    """Cache decorator for API responses"""
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            # Create cache key from request
+            cache_key = f"{view_func.__name__}:{request.GET.urlencode()}"
+            
+            # Try to get from cache
+            cached_response = cache.get(cache_key)
+            if cached_response:
+                logger.debug(f"Cache hit for {cache_key}")
+                return JsonResponse(cached_response)
+            
+            # Execute view
+            response = view_func(request, *args, **kwargs)
+            
+            # Cache the response data
+            if isinstance(response, JsonResponse):
+                try:
+                    data = json.loads(response.content)
+                    cache.set(cache_key, data, timeout)
+                except json.JSONDecodeError:
+                    pass
+            
+            return response
+        return wrapper
+    return decorator
+
+def handle_errors(view_func):
+    """Error handling decorator"""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        try:
+            return view_func(request, *args, **kwargs)
+        except Exception as e:
+            logger.exception(f"Error in {view_func.__name__}: {e}")
+            return JsonResponse({
+                "error": "Internal server error",
+                "message": str(e) if os.getenv('DEBUG') else "An error occurred"
+            }, status=500)
+    return wrapper
+
+def is_admin(user):
+    """Check if user is admin"""
+    return user.is_authenticated and (user.is_staff or user.is_superuser)
+
+# ============================================================================
+# DASHBOARD VIEW
+# ============================================================================
+
+@login_required
+def dashboard(request):
+    """Main dashboard view - Renders analytics_dashboard.html"""
+    context = {
+        'user': request.user,
+        'is_admin': True,
+        'page_title': 'Rwanda Malaria Surveillance Dashboard',
+        'api_url': request.build_absolute_uri('/analytics_dashboard/api/')
+    }
+    return render(request, 'analytics_dashboard/analytics_dashboard.html', context)
+
+# ============================================================================
+# LOCATION METADATA APIs (FROM POSTGRES ACCOUNTS TABLES)
+# ============================================================================
+
+@login_required
+@require_http_methods(["GET"])
+@handle_errors
+def get_provinces(request):
+    """Get list of all provinces from Postgres accounts_province table"""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT name FROM accounts_province ORDER BY name")
+            provinces = [row[0] for row in cursor.fetchall()]
+        return JsonResponse({"provinces": provinces})
+    except Exception as e:
+        logger.error(f"Error getting provinces: {e}")
+        return JsonResponse({"provinces": []})
+
+@login_required
+@require_http_methods(["GET"])
+@handle_errors
+def get_districts(request):
+    """Get districts from Postgres accounts_district table"""
+    province = request.GET.get('province', '').strip()
+    try:
+        with connection.cursor() as cursor:
+            if province:
+                # Join with province table to filter by province name
+                query = """
+                    SELECT d.name 
+                    FROM accounts_district d
+                    JOIN accounts_province p ON d.province_id = p.id
+                    WHERE p.name = %s
+                    ORDER BY d.name
+                """
+                cursor.execute(query, [province])
+            else:
+                cursor.execute("SELECT name FROM accounts_district ORDER BY name")
+            
+            districts = [row[0] for row in cursor.fetchall()]
+        return JsonResponse({"districts": districts})
+    except Exception as e:
+        logger.error(f"Error getting districts: {e}")
+        return JsonResponse({"districts": []})
+
+@login_required
+@require_http_methods(["GET"])
+@handle_errors
+def get_sectors(request):
+    """Get sectors from Postgres accounts_sector table"""
+    province = request.GET.get('province', '').strip()
+    district = request.GET.get('district', '').strip()
+    
+    try:
+        with connection.cursor() as cursor:
+            if district:
+                # Join with district table to filter by district name
+                query = """
+                    SELECT s.name 
+                    FROM accounts_sector s
+                    JOIN accounts_district d ON s.district_id = d.id
+                    WHERE d.name = %s
+                    ORDER BY s.name
+                """
+                cursor.execute(query, [district])
+                sectors = [row[0] for row in cursor.fetchall()]
+            elif province:
+                # If only province selected, get all sectors in that province (optional but good UX)
+                query = """
+                    SELECT s.name 
+                    FROM accounts_sector s
+                    JOIN accounts_district d ON s.district_id = d.id
+                    JOIN accounts_province p ON d.province_id = p.id
+                    WHERE p.name = %s
+                    ORDER BY s.name
+                """
+                cursor.execute(query, [province])
+                sectors = [row[0] for row in cursor.fetchall()]
+            else:
+                 # Return empty if no filter to prevent loading all sectors
+                 sectors = []
+            
+        return JsonResponse({"sectors": sectors})
+    except Exception as e:
+        logger.error(f"Error getting sectors: {e}")
+        return JsonResponse({"sectors": []})
+
+# ============================================================================
+# DASHBOARD KPI APIS (FROM POSTGRES TABLE)
+# ============================================================================
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_kpi_data(request):
+    """Get Key Performance Indicators from yearly statistics"""
+    province, district, sector = get_location_hierarchy(request)
+    years = get_year_filter(request)
+    
+    try:
+        # Switch to yearly statistics for flexible aggregation
+        query = """
+            SELECT 
+                SUM(total_tests) as total_tests, 
+                SUM(positive_cases) as total_pos, 
+                SUM(negative_cases) as total_neg,
+                AVG(positivity_rate) as avg_pos
+            FROM hc_data_yearly_statist_bugesera_kamabuye 
+            WHERE 1=1
+        """
+        params = []
+        
+        if years:
+            query += " AND year IN %s"
+            # Postgres adapter handles tuple/list for IN clause usually, but raw sql might need tuple
+            params.append(tuple(years))
+            
+        if district:
+            query += " AND filter_district = %s"
+            params.append(district)
+        if sector:
+            query += " AND filter_sector = %s"
+            params.append(sector)
+            
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+            
+        total_tests = row[0] or 0
+        total_pos = row[1] or 0
+        total_neg = row[2] or 0
+        avg_pos_rate = round(row[3], 1) if row[3] else 0
+        
+        # Get Population & API from API table (as summary table might lack these)
+        api_query = "SELECT SUM(population), AVG(api) FROM hc_api_east_bugesera WHERE 1=1"
+        api_params = []
+        if province: api_query += " AND province = %s"; api_params.append(province)
+        if district: api_query += " AND district = %s"; api_params.append(district)
+        if sector: api_query += " AND sector = %s"; api_params.append(sector)
+            
+        with connection.cursor() as cursor:
+            cursor.execute(api_query, api_params)
+            api_row = cursor.fetchone()
+            
+        total_pop = api_row[0] or 0
+        avg_api = round(api_row[1], 1) if api_row[1] else 0
+        
+        # Calculate Incidence
+        incidence = round((total_pos / total_pop * 1000), 1) if total_pop > 0 else 0
+        
+        return JsonResponse({
+            "total_tests": total_tests,
+            "total_positive": total_pos,
+            "total_negative": total_neg,
+            "avg_positivity_rate": avg_pos_rate, # From summary table
+            "positive_change": f"{avg_api}",     # Using API as 'Change' metric or secondary kpi
+            "negative_change": f"{incidence}"    # Using Incidence as 'Change' metric
+        })
+    except Exception as e:
+        logger.error(f"Error getting KPI data: {e}")
+        return JsonResponse({
+            "total_tests": 0, "total_positive": 0, "total_negative": 0,
+            "avg_positivity_rate": 0, "positive_change": "0%", "negative_change": "0%"
+        })
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_gender_analysis(request):
+    """Get gender-based analysis from hc_data_gender_pos_by_year_..."""
+    province, district, sector = get_location_hierarchy(request)
+    years = get_year_filter(request)
+    
+    try:
+        # Aggregate tests by gender, optionally filtering by year
+        query = """
+            SELECT gender, SUM(total_tests), year
+            FROM hc_data_gender_pos_by_year_bugesera_kamabuye
+            WHERE gender IS NOT NULL
+        """
+        params = []
+        
+        if years:
+            query += " AND year IN %s"
+            params.append(tuple(years))
+            
+        if district:
+            query += " AND filter_district = %s"
+            params.append(district)
+        if sector:
+            query += " AND filter_sector = %s"
+            params.append(sector)
+            
+        # Group by gender and year to separate datasets
+        query += " GROUP BY gender, year ORDER BY gender"
+        
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+        # Transform rows: [(Male, 100, 2021), (Female, 150, 2021), ...]
+        # Need distinct labels (Male/Female) and datasets for each year
+        unique_genders = sorted(list(set(r[0] for r in rows if r[0])))
+        
+        response_data = {"labels": unique_genders}
+        
+        # For each year (default to 2021-2023 or selected years), build data array
+        target_years = years if years else [2021, 2022, 2023]
+        
+        for y in target_years:
+            year_data = []
+            for g in unique_genders:
+                # Find sum for this gender + year
+                val = next((r[1] for r in rows if r[0] == g and r[2] == y), 0)
+                year_data.append(val)
+            response_data[str(y)] = year_data
+
+        return JsonResponse(response_data)
+    except Exception as e:
+        logger.error(f"Error getting gender analysis: {e}")
+        return JsonResponse({"labels": [], "2021": [], "2022": [], "2023": []})
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_precipitation_data(request):
+    """Get monthly precipitation data from weather_juru_prec_and_juru_temp_no_district"""
+    years_filter = get_year_filter(request)
+    
+    try:
+        # Query Postgres weather table
+        query = """
+            SELECT year, month, AVG(monthly_precipitation)
+            FROM weather_juru_prec_and_juru_temp_no_district
+            WHERE 1=1
+        """
+        params = []
+        
+        if years_filter:
+            query += " AND year IN %s"
+            params.append(tuple(years_filter))
+            
+        group_by = " GROUP BY year, month ORDER BY month"
+        query += group_by
+        
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+        # Structure data for Chart.js
+        # rows: [(2021, 1, 50.5), (2021, 2, 60.0), ...]
+        
+        labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        response_data = {"labels": labels}
+        
+        # Determine years to return
+        target_years = years_filter if years_filter else [2021, 2022, 2023]
+        
+        # Organize by year
+        data_map = {} # {2021: {1: 50, 2: 60}}
+        for r in rows:
+            y = r[0]
+            m = int(r[1])
+            val = float(r[2]) if r[2] is not None else 0
+            
+            if y not in data_map: data_map[y] = {}
+            data_map[y][m] = val
+            
+        # Build arrays
+        for y in target_years:
+            year_series = [0] * 12
+            if y in data_map:
+                for i in range(12):
+                    year_series[i] = data_map[y].get(i+1, 0)
+            response_data[str(y)] = year_series
+            
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        logger.error(f"Error getting precipitation data: {e}")
+        return JsonResponse({
+            "labels": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            "2021": [], "2022": [], "2023": []
+        })
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_temperature_data(request):
+    """Get monthly temperature data from weather_juru_prec_and_juru_temp_no_district"""
+    years_filter = get_year_filter(request)
+    
+    try:
+        # Query Postgres weather table
+        query = """
+            SELECT year, month, AVG(monthly_temperature)
+            FROM weather_juru_prec_and_juru_temp_no_district
+            WHERE 1=1
+        """
+        params = []
+        
+        if years_filter:
+            query += " AND year IN %s"
+            params.append(tuple(years_filter))
+            
+        group_by = " GROUP BY year, month ORDER BY month"
+        query += group_by
+        
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+        labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        response_data = {"labels": labels}
+        
+        target_years = years_filter if years_filter else [2021, 2022, 2023]
+        
+        data_map = {} 
+        for r in rows:
+            y = r[0]
+            m = int(r[1])
+            val = float(r[2]) if r[2] is not None else 0
+            
+            if y not in data_map: data_map[y] = {}
+            data_map[y][m] = val
+            
+        for y in target_years:
+            year_series = [0] * 12
+            if y in data_map:
+                for i in range(12):
+                    year_series[i] = data_map[y].get(i+1, 0)
+            response_data[str(y)] = year_series
+            
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        logger.error(f"Error getting temperature data: {e}")
+        return JsonResponse({
+            "labels": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            "2021": [], "2022": [], "2023": []
+        })
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_monthly_trend(request):
+    """Get monthly trend from hc_data_monthly_positivity_..."""
+    province, district, sector = get_location_hierarchy(request)
+    years = get_year_filter(request)
+    
+    try:
+        # Query monthly table
+        # We need month, rate, YEAR to separate datasets
+        query = """
+            SELECT month_name, AVG(positivity_rate), year, month
+            FROM hc_data_monthly_positivity_bugesera_kamabuye 
+            WHERE 1=1
+        """
+        params = []
+        
+        if years:
+            query += " AND year IN %s"
+            params.append(tuple(years))
+            
+        if district:
+            query += " AND filter_district = %s"
+            params.append(district)
+        if sector:
+            query += " AND filter_sector = %s"
+            params.append(sector)
+            
+        # Group by year, month
+        query += " GROUP BY year, month, month_name ORDER BY month"
+        
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+        # rows: [(Jan, 10.5, 2021, 1), (Jan, 12.0, 2022, 1), ...]
+        # We need standard month labels
+        month_labels = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        
+        response_data = {"labels": month_labels}
+        
+        target_years = years if years else [2021, 2022, 2023]
+        
+        for y in target_years:
+            year_data = [0] * 12
+            for r in rows:
+                if r[2] == y: # Matching year
+                    m_idx = r[3] - 1 # 0-indexed month
+                    if 0 <= m_idx < 12:
+                        year_data[m_idx] = float(r[1])
+            response_data[str(y)] = year_data
+        
+        return JsonResponse(response_data)
+    except Exception as e:
+        logger.error(f"Error trend: {e}")
+        return JsonResponse({"labels": [], "2021": [], "2022": [], "2023": []})
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_villages_data(request):
+    """Get village level stats from hc_raw_bugesera_kamabuye"""
+    province, district, sector = get_location_hierarchy(request)
+    years = get_year_filter(request)
+    
+    try:
+        # Query raw table
+        # We want: Village Name, Total Tests, Positive Cases, Rate
+        query = """
+            SELECT 
+                village, 
+                COUNT(*) as total_tests,
+                SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END) as positive_cases
+            FROM hc_raw_bugesera_kamabuye 
+            WHERE 1=1
+        """
+        params = []
+        
+        if years:
+            query += " AND year IN %s"
+            params.append(tuple(years))
+            
+        if district:
+             query += " AND district = %s"
+             params.append(district)
+        if sector:
+             query += " AND sector = %s"
+             params.append(sector)
+             
+        query += " GROUP BY village HAVING COUNT(*) > 0 ORDER BY (SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END)::float / COUNT(*)) DESC LIMIT 50"
+        
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+        villages = []
+        
+        # Determine display string for year
+        if years:
+             year_str = ", ".join(map(str, sorted(years)))
+        else:
+             year_str = "All Available"
+             
+        for row in rows:
+            mapped_village = row[0]
+            if not mapped_village: continue
+            
+            total = row[1]
+            positive = row[2] or 0
+            rate = round((positive / total * 100), 1) if total > 0 else 0
+            
+            villages.append({
+                "village": mapped_village,
+                "tests": total,
+                "positive": positive,
+                "rate": rate,
+                "year": year_str
+            })
+        return JsonResponse({"villages": villages})
+    except Exception as e:
+        logger.error(f"Error villages: {e}")
+        return JsonResponse({"villages": []})
+
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_location_summary(request):
+    """Get summary statistics by location"""
+    group_by = request.GET.get('group_by', 'district') # 'district', 'sector'
+    province, district, sector = get_location_hierarchy(request)
+    years = get_year_filter(request)
+    
+    try:
+        # Determine grouping column
+        col = 'filter_sector' if sector else 'filter_district' if district else 'filter_district' # Default to district
+        
+        # Query yearly stats table for aggregation
+        # 1. Main Stats Query
+        query = f"""
+            SELECT 
+                {col}, 
+                SUM(total_tests) as tests, 
+                SUM(positive_cases) as pos, 
+                SUM(negative_cases) as neg,
+                AVG(positivity_rate) as rate
+            FROM hc_data_yearly_statist_bugesera_kamabuye 
+            WHERE 1=1
+        """
+        params = []
+        
+        if years:
+            query += " AND year IN %s"
+            params.append(tuple(years))
+        
+        if district: 
+            query += " AND filter_district = %s"
+            params.append(district)
+        if sector:
+            query += " AND filter_sector = %s"
+            params.append(sector)
+        
+        query += f" GROUP BY {col} ORDER BY SUM(positive_cases) DESC"
+        
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+        # 2. Village Count Query (Raw Table)
+        # We need distinct village count per location (district/sector)
+        raw_col = 'sector' if sector else 'district' if district else 'district'
+        raw_params = []
+        
+        village_query = f"""
+            SELECT {raw_col}, COUNT(DISTINCT village) as v_count
+            FROM hc_raw_bugesera_kamabuye
+            WHERE 1=1
+        """
+        
+        if years:
+            village_query += " AND year IN %s"
+            raw_params.append(tuple(years))
+            
+        if district:
+             village_query += " AND district = %s"
+             raw_params.append(district)
+        if sector:
+             village_query += " AND sector = %s"
+             raw_params.append(sector)
+             
+        village_query += f" GROUP BY {raw_col}"
+        
+        with connection.cursor() as cursor:
+            cursor.execute(village_query, raw_params)
+            village_rows = cursor.fetchall() # [(Bugesera, 150), ...]
+            
+        # Create map for village counts
+        village_map = {row[0]: row[1] for row in village_rows if row[0]}
+            
+        summary = []
+        for row in rows:
+            loc_name = row[0]
+            if not loc_name: continue
+            
+            # Match names (handle potential case sensitivity or spaces if needed, but assuming exact match)
+            # Database columns should match conceptually (District name in raw vs filter_district in statist)
+            
+            num_villages = village_map.get(loc_name, 0)
+            
+            summary.append({
+                "location": loc_name,
+                "total_tests": row[1] or 0,
+                "total_positive": row[2] or 0,
+                "total_negative": row[3] or 0,
+                "avg_positivity_rate": round(row[4], 1) if row[4] else 0,
+                "num_villages": num_villages
+            })
+        
+        return JsonResponse({
+            "group_by": group_by,
+            "summary": summary
+        })
+    except Exception as e:
+        logger.error(f"Error summary: {e}")
+        return JsonResponse({"group_by": group_by, "summary": []})
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+@login_required
+@require_http_methods(["GET"])
+@handle_errors
+def refresh_data(request):
+    """Refresh data cache"""
+    # Clear all dashboard cache keys
+    cache_pattern = 'analytics_dashboard_*'
+    # Note: Simple implementation, Django cache backend dependent
+    
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Data cache refreshed successfully'
+    })
+
+@login_required
+@require_http_methods(["GET"])
+@handle_errors
+def export_data(request):
+    """Export data as JSON"""
+    export_format = request.GET.get('format', 'json')
+    
+    # Get all data
+    kpi_response = get_kpi_data(request)
+    kpi_data = json.loads(kpi_response.content)
+    
+    gender_response = get_gender_analysis(request)
+    gender_data = json.loads(gender_response.content)
+    
+    villages_response = get_villages_data(request)
+    villages_data = json.loads(villages_response.content)
+    
+    export_data = {
+        'kpi': kpi_data,
+        'gender_analysis': gender_data,
+        'villages': villages_data,
+        'exported_at': datetime.now().isoformat()
+    }
+    
+    if export_format == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="malaria_data_export.csv"'
+        # Add CSV writing logic here
+        return response
+    else:
+        return JsonResponse(export_data)
+
+@login_required
+def check_admin_status(request):
+    """Check if user is admin"""
+    return JsonResponse({"is_admin": is_admin(request.user)})
+
+@login_required
+@csrf_exempt
+def logout_user(request):
+    """Logout user"""
+    if request.method == "POST":
+        logout(request)
+        return JsonResponse({"success": True, "redirect": "/auth/login/"})
+    return JsonResponse({"success": False}, status=405)
+
+# ============================================================================
+# MAP DATA API
+# ============================================================================
+
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
+def get_map_data(request):
+    """Get GeoJSON data for the map"""
+    province, district, sector = get_location_hierarchy(request)
+    
+    try:
+        # Connect to MongoDB using settings
+        mongo_uri = getattr(settings, 'MONGO_URI', 'mongodb://localhost:27017/')
+        db_name = getattr(settings, 'MONGO_SHAPEFILE_DB', 'geospatial_wgs84_boundaries_db')
+        collection_name = getattr(settings, 'MONGO_SHAPEFILE_COLLECTION', 'boundaries_slope_wgs84')
+        
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
+        db = client[db_name]
+        collection = db[collection_name]
+        
+        # Build query
+        query = {}
+        if district:
+             # Case-insensitive regex search for district
+             query['district'] = {'$regex': f'^{district}$', '$options': 'i'}
+        elif province:
+             query['province'] = {'$regex': f'^{province}$', '$options': 'i'}
+             
+        # Fetch features (limit to avoid overwhelming browser if too many)
+        # Projection: Include geometry and essential properties
+        features = list(collection.find(
+            query,
+            {"_id": 0, "geometry": 1, "district": 1, "province": 1, "sector": 1, "slope_class": 1}
+        ).limit(500)) 
+        
+        # Construct GeoJSON FeatureCollection
+        geojson = {
+            "type": "FeatureCollection",
+            "features": features
+        }
+        
+        return JsonResponse(geojson)
+        
+    except Exception as e:
+        logger.error(f"Error getting map data: {e}")
+        return JsonResponse({"type": "FeatureCollection", "features": []})

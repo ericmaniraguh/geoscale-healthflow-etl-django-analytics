@@ -35,10 +35,16 @@ urlpatterns = [
     # ETL app URLs (existing ETL processing functionality)
     path('etl/', include('app.etl_app.urls')),
 
-    # Geospatial merger app URLs (NEW - FIXED PATH)
+   # Geospatial merger app URLs (NEW - FIXED PATH)
     path('geospatial/', include('app.geospatial_merger.urls')),
     
     # Built-in Django auth URLs
     # path('auth/', include('django.contrib.auth.urls')),
+
+     # Analytics dashboard URLs (NEW - ADDED)
+    path('analytics_dashboard/', include('app.analytics_dashboard.urls')),
+
+
 ]
+
 

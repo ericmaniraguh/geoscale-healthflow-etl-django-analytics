@@ -24,10 +24,10 @@ class GeospatialMongoSaver:
         self.mongo_uri = getattr(settings, 'MONGO_URI', None)
         
         # Use your existing MongoDB cluster for geospatial data
-        self.mongo_db_name = getattr(settings, 'MONGO_GEOSPATIAL_DB', 'geospatial_wgs84_boundaries_db')
+        self.mongo_db_name = getattr(settings, 'MONGO_SHAPEFILE_DB', 'geospatial_wgs84_boundaries_db')
         
         # Collections
-        self.main_collection_name = 'boundaries_slope_wgs84'
+        self.main_collection_name = getattr(settings, 'MONGO_SHAPEFILE_COLLECTION', 'boundaries_slope_wgs84')
         self.metadata_collection_name = 'processing_metadata'
         self.logs_collection_name = 'merge_operation_logs'
         

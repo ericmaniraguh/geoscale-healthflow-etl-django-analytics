@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'app.upload_app.apps.UploadAppConfig',
     'app.etl_app.apps.EtlAppConfig',
     'app.geospatial_merger.apps.GeospatialMergerConfig',
+    'app.analytics_dashboard.apps.AnalyticsDashboardConfig', # ADDED: Analytics Dashboard Config
 ]
 
 MIDDLEWARE = [
@@ -152,7 +153,7 @@ DEFAULT_FROM_EMAIL = f"GeoScale Malaria Platform <{config('EMAIL_HOST_USER', def
 SERVER_EMAIL = config('EMAIL_HOST_USER', default='')
 
 # Site URL for email links
-SITE_URL = config('SITE_URL', default='http://localhost:8000')
+# SITE_URL = config('SITE_URL', default='http://localhost:8000')
 
 # ================================
 # CUSTOM OTP SETTINGS
@@ -263,7 +264,13 @@ CACHES = {
 # MONGODB CONFIGURATION (UNCHANGED - YOUR EXISTING CONFIG)
 # ================================
 
-MONGO_URI = config('MONGO_URI', default='mongodb://localhost:27017/')
+# MONGO_URI = config('MONGO_URI', default='mongodb://localhost:27017/')
+
+MONGO_URI = config(
+    'MONGO_URI',
+    default='mongodb+srv://healthcenter_admin:admin@healthcentercluster.4v2d6.mongodb.net/'
+)
+
 MONGO_DB = config('MONGO_DB', default='health_center_data')
 MONGO_COLLECTION = config('MONGO_COLLECTION', default='lab_data')
 MONGO_HEALTHCENTER_DB = config('MONGO_HEALTHCENTER_DB', default=MONGO_DB)
@@ -281,8 +288,8 @@ MONGO_WEATHER_TEMP_METADATA_COLLECTION = f"{MONGO_TEMP_COLLECTION}_metadata"
 MONGO_WEATHER_PREC_METADATA_COLLECTION = f"{MONGO_PREC_COLLECTION}_metadata"
 
 MONGO_SHAPEFILE_URI = config('MONGO_SHAPEFILE_URI', default=MONGO_URI)
-MONGO_SHAPEFILE_DB = config('MONGO_SHAPEFILE_DB', default='geospatial_data')
-MONGO_SHAPEFILE_COLLECTION = config('MONGO_SHAPEFILE_COLLECTION', default='boundaries')
+MONGO_SHAPEFILE_DB = config('MONGO_SHAPEFILE_DB', default='geospatial_wgs84_boundaries_db') # UPDATED to match processor expectations
+MONGO_SHAPEFILE_COLLECTION = config('MONGO_SHAPEFILE_COLLECTION', default='boundaries_slope_wgs84') # UPDATED to match processor expectations
 
 MONGO_SLOPE_DB = config('MONGO_DB_NAME', default='slope_raster_database')
 MONGO_SLOPE_COLLECTION = config('MONGO_COLLECTION_NAME', default='slope_uploads')

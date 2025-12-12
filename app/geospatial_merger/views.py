@@ -9,6 +9,7 @@ import tempfile
 import uuid
 import threading
 from django.shortcuts import render, redirect
+from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -158,11 +159,16 @@ def get_results_preview(request):
     
     # Try MongoDB first
     try:
-        client = MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27017/'), 
-                           serverSelectionTimeoutMS=5000)
+        # Use Django settings for consistency
+        mongo_uri = getattr(settings, 'MONGO_URI', 'mongodb://localhost:27017/')
+        db_name = getattr(settings, 'MONGO_SHAPEFILE_DB', 'geospatial_wgs84_boundaries_db')
+        
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
         client.admin.command('ping')
-        db = client[os.getenv('MONGODB_DB', 'geospatial_db')]
-        collection = db['processed_data']
+        db = client[db_name]
+        # Allow customizable collection name but default to settings or WGS84 standard
+        collection_name = getattr(settings, 'MONGO_SHAPEFILE_COLLECTION', 'boundaries_slope_wgs84')
+        collection = db[collection_name]
         
         results = list(collection.find(
             {"process_id": process_id},
