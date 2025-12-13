@@ -13,6 +13,17 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+def log_debug(message):
+    """Log debug message to a file"""
+    try:
+        import tempfile
+        import os
+        log_file = os.path.join(tempfile.gettempdir(), "geospatial_mongo_debug.log")
+        with open(log_file, "a") as f:
+            f.write(f"{datetime.now().isoformat()} - {message}\n")
+    except:
+        pass
+
 
 class GeospatialMongoSaver:
     """MongoDB saver service for geospatial data following ETL pattern"""
@@ -48,6 +59,7 @@ class GeospatialMongoSaver:
             print("GEOSPATIAL MONGODB CONNECTION SETUP")
             print("=" * 80)
             print(f"Using Django settings MONGO_URI: {self.mongo_uri.split('@')[0] if '@' in self.mongo_uri else 'localhost'}@***")
+            log_debug(f"Process {self.process_id}: Initializing MongoDB connection. URI provided: {'Yes' if self.mongo_uri else 'No'}")
             
             # Connect with optimized settings
             self._client = MongoClient(
@@ -63,6 +75,7 @@ class GeospatialMongoSaver:
             # Test connection
             self._client.admin.command("ping")
             print("MongoDB connection successful")
+            log_debug(f"Process {self.process_id}: MongoDB connection successful.")
             
             # Set up database and collections
             self.db = self._client[self.mongo_db_name]
@@ -90,6 +103,7 @@ class GeospatialMongoSaver:
             
         except Exception as e:
             self.mongodb_error = str(e)
+            log_debug(f"Process {self.process_id}: MongoDB connection FAILED. Error: {e}")
             print(f"MongoDB connection failed: {e}")
             print("Will use file storage only")
             print("=" * 80)
@@ -313,6 +327,78 @@ class GeospatialMongoSaver:
             
         except Exception as e:
             logger.error(f"Error getting process statistics: {e}")
+            return {}
+
+    def get_global_statistics(self) -> Dict[str, Any]:
+        """Get global statistics for the dashboard"""
+        if not self.mongodb_available:
+            return {}
+
+        try:
+            # Total boundaries (documents in main collection)
+            total_boundaries = self.collection.count_documents({})
+            
+            # Aggregate processing logs to get total files/slope points analyzed
+            pipeline = [
+                {
+                    "$group": {
+                        "_id": None,
+                        "total_slope_points": {"$sum": "$file_statistics.total_slope_points"},
+                        "total_files": {"$sum": 1} # Count of metadata docs = count of processes
+                    }
+                }
+            ]
+            
+            meta_stats = list(self.metadata_collection.aggregate(pipeline))
+            total_slope_points = meta_stats[0]['total_slope_points'] if meta_stats else 0
+            
+            return {
+                "total_boundaries": total_boundaries,
+                "total_slope_points": total_slope_points,
+                "total_processes": self.metadata_collection.count_documents({}),
+                "last_update": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting global statistics: {e}")
+            return {}
+
+    def get_global_statistics(self) -> Dict[str, Any]:
+        """Get global statistics for the dashboard"""
+        if not self.mongodb_available:
+            return {}
+
+        try:
+            # Total boundaries (documents in main collection)
+            total_boundaries = self.collection.count_documents({})
+            
+            # Sum of slope points (if available in documents)
+            # This can be expensive, so maybe we rely on metadata aggregation
+            # Or just count documents for now as "Processed Boundaries"
+            
+            # Aggregate processing logs to get total files/slope points analyzed
+            pipeline = [
+                {
+                    "$group": {
+                        "_id": None,
+                        "total_slope_points": {"$sum": "$file_statistics.total_slope_points"},
+                        "total_files": {"$sum": 1} # Count of metadata docs = count of processes
+                    }
+                }
+            ]
+            
+            meta_stats = list(self.metadata_collection.aggregate(pipeline))
+            total_slope_points = meta_stats[0]['total_slope_points'] if meta_stats else 0
+            
+            return {
+                "total_boundaries": total_boundaries,
+                "total_slope_points": total_slope_points,
+                "total_processes": self.metadata_collection.count_documents({}),
+                "last_update": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting global statistics: {e}")
             return {}
     
     def close_connection(self):

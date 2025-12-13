@@ -326,10 +326,15 @@ def get_gender_analysis(request):
     years = get_year_filter(request)
     
     try:
-        # Aggregate tests by gender, optionally filtering by year
+        # Aggregate from RAW table to ensure we get both Total Tests and Positive Cases
+        # Calculate Positivity Rate: (Positive / Total) * 100
         query = """
-            SELECT gender, SUM(total_tests), year
-            FROM hc_data_gender_pos_by_year_bugesera_kamabuye
+            SELECT 
+                gender, 
+                COUNT(*) as total_tests,
+                SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END) as total_positive,
+                year
+            FROM hc_raw_bugesera_kamabuye
             WHERE gender IS NOT NULL
         """
         params = []
@@ -339,34 +344,48 @@ def get_gender_analysis(request):
             params.append(tuple(years))
             
         if district:
-            query += " AND filter_district = %s"
+            query += " AND district = %s"
             params.append(district)
         if sector:
-            query += " AND filter_sector = %s"
+            query += " AND sector = %s"
             params.append(sector)
             
-        # Group by gender and year to separate datasets
+        # Group by gender and year
         query += " GROUP BY gender, year ORDER BY gender"
         
         with connection.cursor() as cursor:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-        # Transform rows: [(Male, 100, 2021), (Female, 150, 2021), ...]
-        # Need distinct labels (Male/Female) and datasets for each year
+        # Transform rows: [(Male, 100 tests, 20 pos, 2021), ...]
         unique_genders = sorted(list(set(r[0] for r in rows if r[0])))
         
-        response_data = {"labels": unique_genders}
-        
-        # For each year (default to 2021-2023 or selected years), build data array
-        target_years = years if years else [2021, 2022, 2023]
+        # Determine years present in data if not filtered
+        if years:
+            target_years = years
+        else:
+            # Extract unique years from rows dynamically
+            found_years = sorted(list(set(r[3] for r in rows if r[3])))
+            target_years = found_years if found_years else [2021, 2022, 2023]
+            
+        response_data = {
+            "labels": unique_genders,
+            "available_years": target_years
+        }
         
         for y in target_years:
             year_data = []
             for g in unique_genders:
-                # Find sum for this gender + year
-                val = next((r[1] for r in rows if r[0] == g and r[2] == y), 0)
-                year_data.append(val)
+                # Find stats for this gender + year
+                # row: (gender, total_tests, total_positive, year)
+                match = next((r for r in rows if r[0] == g and r[3] == y), None)
+                if match:
+                    total = match[1]
+                    positive = match[2]
+                    rate = round((positive / total * 100), 1) if total > 0 else 0
+                    year_data.append(rate)
+                else:
+                    year_data.append(0)
             response_data[str(y)] = year_data
 
         return JsonResponse(response_data)
@@ -541,9 +560,18 @@ def get_monthly_trend(request):
         # We need standard month labels
         month_labels = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
         
-        response_data = {"labels": month_labels}
-        
-        target_years = years if years else [2021, 2022, 2023]
+        # Determine years present in data
+        if years:
+            target_years = years
+        else:
+            # unique sorted years from result
+            found_years = sorted(list(set(r[2] for r in rows if r[2])))
+            target_years = found_years if found_years else [2021, 2022, 2023]
+
+        response_data = {
+            "labels": month_labels,
+            "available_years": target_years
+        }
         
         for y in target_years:
             year_data = [0] * 12
@@ -573,7 +601,7 @@ def get_villages_data(request):
         # We want: Village Name, Total Tests, Positive Cases, Rate
         query = """
             SELECT 
-                village, 
+                INITCAP(village) as village, 
                 COUNT(*) as total_tests,
                 SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END) as positive_cases
             FROM hc_raw_bugesera_kamabuye 
@@ -592,7 +620,7 @@ def get_villages_data(request):
              query += " AND sector = %s"
              params.append(sector)
              
-        query += " GROUP BY village HAVING COUNT(*) > 0 ORDER BY (SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END)::float / COUNT(*)) DESC LIMIT 50"
+        query += " GROUP BY 1 HAVING COUNT(*) > 0 ORDER BY (SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END)::float / COUNT(*)) DESC LIMIT 50"
         
         with connection.cursor() as cursor:
             cursor.execute(query, params)
@@ -678,7 +706,7 @@ def get_location_summary(request):
         raw_params = []
         
         village_query = f"""
-            SELECT {raw_col}, COUNT(DISTINCT village) as v_count
+            SELECT {raw_col}, COUNT(DISTINCT INITCAP(village)) as v_count
             FROM hc_raw_bugesera_kamabuye
             WHERE 1=1
         """
@@ -803,42 +831,161 @@ def logout_user(request):
 @cache_response(timeout=300)
 @handle_errors
 def get_map_data(request):
-    """Get GeoJSON data for the map"""
+    """Get GeoJSON data for the map - Optimized SQL Version"""
     province, district, sector = get_location_hierarchy(request)
+    years = get_year_filter(request)
+    
+    # Defaults if missing (Study Area: Bugesera/Kamabuye)
+    if not district: district = "Bugesera"
+    if not sector: sector = "Kamabuye"
     
     try:
-        # Connect to MongoDB using settings
-        mongo_uri = getattr(settings, 'MONGO_URI', 'mongodb://localhost:27017/')
-        db_name = getattr(settings, 'MONGO_SHAPEFILE_DB', 'geospatial_wgs84_boundaries_db')
-        collection_name = getattr(settings, 'MONGO_SHAPEFILE_COLLECTION', 'boundaries_slope_wgs84')
+        # 1. Determine Boundary Table Name
+        import re
+        def sanitize(name):
+            if not name: return ""
+            return re.sub(r'[^a-zA-Z0-9_]', '_', name.lower())[:20]
         
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
-        db = client[db_name]
-        collection = db[collection_name]
+        dist_part = sanitize(district)
+        sect_part = sanitize(sector)
+        boundary_table = f"rwanda_boundaries_{dist_part}_{sect_part}"
         
-        # Build query
-        query = {}
-        if district:
-             # Case-insensitive regex search for district
-             query['district'] = {'$regex': f'^{district}$', '$options': 'i'}
-        elif province:
-             query['province'] = {'$regex': f'^{province}$', '$options': 'i'}
-             
-        # Fetch features (limit to avoid overwhelming browser if too many)
-        # Projection: Include geometry and essential properties
-        features = list(collection.find(
-            query,
-            {"_id": 0, "geometry": 1, "district": 1, "province": 1, "sector": 1, "slope_class": 1}
-        ).limit(500)) 
+        # 2. Build Query Parameters
+        params = []
         
-        # Construct GeoJSON FeatureCollection
-        geojson = {
-            "type": "FeatureCollection",
-            "features": features
-        }
+        # Year Filter for Health Data
+        year_clause = ""
+        if years:
+            year_clause = " AND year IN %s"
+            params.append(tuple(years))
+
+        # Province Filter (Keyword Match)
+        province_clause = ""
+        if province:
+            # Map full names to DB keywords if needed, or just use ILIKE
+            # User mentioned focusing on keywords like 'east', 'west'
+            keywords = {'est': 'east', 'east': 'east', 'ouest': 'west', 'west': 'west', 'nord': 'north', 'north': 'north', 'sud': 'south', 'south': 'south'}
+            prov_key = keywords.get(province.lower(), province.lower())
+            # We apply this to the health table filter if column exists, or just rely on district/sector
+            # For this query, we primarily filter by district/sector which are more specific.
         
-        return JsonResponse(geojson)
+        # 3. Construct Optimized SQL Query
+        # CTE: Aggregate Health Data by Village
+        # Main: Left Join Boundaries with Health Data
+        query = f"""
+            WITH village_health AS (
+                SELECT 
+                    TRIM(LOWER(village)) as join_key,
+                    COUNT(*) as total_tests,
+                    SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END) as positive_cases
+                FROM hc_raw_bugesera_kamabuye
+                WHERE 1=1 
+                {year_clause}
+                AND district ILIKE %s
+                AND sector ILIKE %s
+                GROUP BY 1
+            )
+            SELECT 
+                b.district_name,
+                b.sector_name,
+                b.cell_name,
+                b.village_name,
+                b.mean_slope,
+                b.max_slope,
+                b.slope_class,
+                b.geometry_geojson,
+                
+                -- Joined Health Stats
+                COALESCE(h.total_tests, 0) as total_tests,
+                COALESCE(h.positive_cases, 0) as total_positive
+            FROM {boundary_table} b
+            LEFT JOIN village_health h ON TRIM(LOWER(b.village_name)) = h.join_key
+            WHERE b.geometry_geojson IS NOT NULL
+            LIMIT 3000;
+        """
         
+        # Add District/Sector params for the WHERE clause in CTE
+        params.append(f"%{district}%")
+        params.append(f"%{sector}%")
+
+        logger.info(f"Executing optimized map query against {boundary_table}")
+        
+        with connection.cursor() as cursor:
+            # Check table existence first
+            cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s)", [boundary_table])
+            if not cursor.fetchone()[0]:
+                 logger.warning(f"Boundary table {boundary_table} not found.")
+                 return JsonResponse({"type": "FeatureCollection", "features": []})
+
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+        if not rows:
+            logger.warning(f"No rows found in {boundary_table}")
+            return JsonResponse({"type": "FeatureCollection", "features": []})
+
+        features = []
+        import json
+        
+        for row in rows:
+            # Map row to dict
+            data = dict(zip(columns, row))
+            
+            # Parse Geometry if needed
+            geom = data.get('geometry_geojson')
+            if isinstance(geom, str):
+                try:
+                    # Try direct parsing first
+                    geom = json.loads(geom)
+                except json.JSONDecodeError:
+                    try:
+                        # Handle double-escaped format: "{""type"": ...}"
+                        # 1. Strip outer quotes if present
+                        if geom.startswith('"') and geom.endswith('"'):
+                            geom = geom[1:-1]
+                        # 2. Replace double double-quotes with single double-quote
+                        cleaned_geom = geom.replace('""', '"')
+                        geom = json.loads(cleaned_geom)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse geometry for {data.get('village_name')}: {e}")
+                        geom = None
+            
+            if not geom:
+                continue
+
+            # Calculate Rate
+            total = data.get('total_tests', 0)
+            positive = data.get('total_positive', 0)
+            rate = round((positive / total * 100), 1) if total > 0 else 0
+            
+            # Risk Level
+            if rate > 5: risk = 'High'
+            elif rate >= 1: risk = 'Medium'
+            else: risk = 'Low'
+
+            feature = {
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {
+                    "district": data.get('district_name'),
+                    "sector": data.get('sector_name'),
+                    "cell": data.get('cell_name'),
+                    "village": data.get('village_name'),
+                    "mean_slope": data.get('mean_slope'),
+                    "max_slope": data.get('max_slope'),
+                    "slope_class": data.get('slope_class'),
+                    "total_tests": total,
+                    "total_positive": positive,
+                    "positivity_rate": rate,
+                    "risk_level": risk,
+                    "has_data": (total > 0)
+                }
+            }
+            features.append(feature)
+        
+        return JsonResponse({"type": "FeatureCollection", "features": features})
+
     except Exception as e:
-        logger.error(f"Error getting map data: {e}")
+        logger.error(f"Error getting map data: {e}", exc_info=True)
         return JsonResponse({"type": "FeatureCollection", "features": []})

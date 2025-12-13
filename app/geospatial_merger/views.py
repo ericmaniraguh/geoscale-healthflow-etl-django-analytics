@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth import logout
 from pymongo import MongoClient
 from .processors.batch_processor import GeospatialBatchProcessor
+from .processors.mongo_saver import GeospatialMongoSaver as MongoSaver
 
 def is_admin(user):
     return user.is_authenticated and (user.is_staff or user.is_superuser)
@@ -245,7 +246,6 @@ def export_merged_data(request):
     }, status=404)
 
 
-
 @login_required
 def check_admin_status(request):
     return JsonResponse({"is_admin": is_admin(request.user)})
@@ -257,3 +257,15 @@ def logout_user(request):
         logout(request)
         return JsonResponse({"success": True, "redirect": "/auth/login/"})
     return JsonResponse({"success": False})
+
+@user_passes_test(is_admin)
+@require_http_methods(["GET"])
+def get_global_stats(request):
+    """Get global statistics for dashboard"""
+    try:
+        # Initialize saver with a dummy ID just to get connection
+        saver = MongoSaver("dashboard_stats")
+        stats = saver.get_global_statistics()
+        return JsonResponse(stats)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

@@ -287,7 +287,8 @@ MONGO_PREC_COLLECTION = config('MONGO_PREC_COLLECTION', default='precipitation')
 MONGO_WEATHER_TEMP_METADATA_COLLECTION = f"{MONGO_TEMP_COLLECTION}_metadata"
 MONGO_WEATHER_PREC_METADATA_COLLECTION = f"{MONGO_PREC_COLLECTION}_metadata"
 
-MONGO_SHAPEFILE_URI = config('MONGO_SHAPEFILE_URI', default=MONGO_URI)
+# MONGO_SHAPEFILE_URI = config('MONGO_SHAPEFILE_URI', default=MONGO_URI)
+MONGO_SHAPEFILE_URI = MONGO_URI # Force use of main Cluster URI to fix localhost issue
 MONGO_SHAPEFILE_DB = config('MONGO_SHAPEFILE_DB', default='geospatial_wgs84_boundaries_db') # UPDATED to match processor expectations
 MONGO_SHAPEFILE_COLLECTION = config('MONGO_SHAPEFILE_COLLECTION', default='boundaries_slope_wgs84') # UPDATED to match processor expectations
 
