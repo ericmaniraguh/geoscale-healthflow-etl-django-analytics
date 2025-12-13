@@ -7,13 +7,7 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- Leaflet Map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
     
     <style>
         * {
@@ -520,40 +514,10 @@
                     <h1><i class="fas fa-virus"></i> Rwanda Malaria Surveillance Dashboard</h1>
                     <p>Real-time analytics for malaria surveillance across health centers in Bugesera and Kamabuye districts</p>
                 </div>
-                
-                <!-- Navigation & Auth -->
-                <div class="header-nav" style="display: flex; gap: 15px; align-items: center;">
-                    <a href="/etl/" class="btn-refresh" style="text-decoration: none; background: #6c757d; font-size: 14px;">
-                        <i class="fas fa-tachometer-alt"></i> Main Dashboard
-                    </a>
-                    
-                    {% if user.is_authenticated %}
-                        <div style="display: flex; align-items: center; gap: 8px; background: rgba(102, 126, 234, 0.1); padding: 8px 15px; border-radius: 20px; border: 1px solid rgba(102, 126, 234, 0.2);">
-                            <i class="fas fa-user-circle" style="color: #667eea; font-size: 18px;"></i>
-                            <span style="font-weight: 600; color: #1a1a2e; font-size: 14px;">{{ user.username }}</span>
-                        </div>
-                        <a href="{% url 'accounts:logout' %}" class="btn-refresh" style="text-decoration: none; background: #dc3545; font-size: 14px;">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </a>
-                    {% else %}
-                        <a href="{% url 'accounts:login' %}" class="btn-refresh" style="text-decoration: none; background: #28a745; font-size: 14px;">
-                            <i class="fas fa-sign-in-alt"></i> Login
-                        </a>
-                    {% endif %}
-                </div>
             </div>
 
             <!-- Filters Section -->
             <div style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 20px;">
-                <div class="filter-group">
-                    <span class="filter-label">📅 Year(s):</span>
-                    <select id="yearFilter" multiple size="1" style="height: 45px;" onchange="updateDashboard()">
-                        <option value="2021" selected>2021</option>
-                        <option value="2022" selected>2022</option>
-                        <option value="2023" selected>2023</option>
-                    </select>
-                </div>
-
                 <div class="filter-group">
                     <span class="filter-label">📍 Filter by Location:</span>
                     
@@ -647,8 +611,10 @@
             <!-- Gender-based Positivity -->
             <div class="chart-container">
                 <div class="chart-header">
-                    <h5 style="text-align: center; margin-bottom: 15px; color: #1a1a2e;">Malaria Positivity Rate (%) by Gender</h5>
-                    <div class="chart-meta">Trend analysis</div>
+                    <div class="chart-title">
+                        <i class="fas fa-venus-mars"></i> Malaria Positive Cases (%) by Gender
+                    </div>
+                    <div class="chart-meta">2021-2023 trend analysis</div>
                 </div>
                 <div class="chart-canvas">
                     <canvas id="genderChart"></canvas>
@@ -659,27 +625,14 @@
             <div class="chart-container">
                 <div class="chart-header">
                     <div class="chart-title">
-                        <i class="fas fa-cloud-rain"></i> Monthly Average Precipitation                     </div>
+                        <i class="fas fa-cloud-rain"></i> Monthly Average Precipitation (2021-2023)
+                    </div>
                     <div class="chart-meta">Weather impact on transmission</div>
                 </div>
                 <div class="chart-canvas">
                     <canvas id="precipitationChart"></canvas>
                 </div>
             </div>
-
-            <!-- Monthly Temperature -->
-            <div class="chart-container">
-                <div class="chart-header">
-                    <div class="chart-title">
-                        <i class="fas fa-thermometer-half"></i> Monthly Average Temperature
-                    </div>
-                    <div class="chart-meta">Temperature trends</div>
-                </div>
-                <div class="chart-canvas">
-                    <canvas id="temperatureChart"></canvas>
-                </div>
-            </div>
-        </div>
         </div>
 
         <!-- Second Row Charts -->
@@ -703,20 +656,10 @@
                     <div class="chart-title">
                         <i class="fas fa-map-marked-alt"></i> Statistics by District
                     </div>
-                    <div class="header-controls" style="justify-content: space-between; width: 100%;">
-                        <div class="chart-meta">District-level comparison</div>
-                        <div class="filter-group" style="margin-top: 0;">
-                            <span class="filter-label" style="font-size: 11px;">Mode:</span>
-                            <select id="mapMode" onchange="loadMap()" style="padding: 4px 8px; font-size: 12px; min-width: 120px; height: auto; margin-right: 10px;">
-                                <option value="malaria">Malaria Risk</option>
-                                <option value="slope">Slope Analysis (Max)</option>
-                            </select>
-                        </div>
-                    </div>
+                    <div class="chart-meta">District-level comparison</div>
                 </div>
                 <div class="chart-canvas">
-                    <!-- REPLACED: Canvas with Map Container -->
-                    <div id="districtMap" style="height: 100%; width: 100%; border-radius: 8px;"></div>
+                    <canvas id="locationChart"></canvas>
                 </div>
             </div>
         </div>
@@ -741,7 +684,6 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>No.</th>
                                 <th>Village</th>
                                 <th>Total Tests</th>
                                 <th>Positive Cases</th>
@@ -790,186 +732,12 @@
             initializeCharts();
             loadProvinces();
             loadDashboardData();
-            loadMap(); // NEW: Load Map
         });
-
-        // ===== MAP VISUALIZATION =====
-        let map;
-        let geojsonLayer;
-        let legendControl;
-
-        async function loadMap() {
-            // center on Rwanda
-            if (!map) {
-                map = L.map('districtMap').setView([-1.9403, 29.8739], 9); 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
-                }).addTo(map);
-
-                // Add Health Center Marker (Kamabuye HC) - Red Cross
-                var hcIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: "<div style='color: red; font-size: 24px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'><i class='fas fa-plus-square'></i></div>",
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                });
-
-                L.marker([-2.3719717, 30.1300954], {icon: hcIcon}).addTo(map)
-                    .bindPopup("<b>Kamabuye Health Center</b><br>Main Facility")
-                    .bindTooltip("Kamabuye HC", {permanent: true, direction: "top", offset: [0, -10]});
-            }
-
-            try {
-                // Get current filters
-                let province = document.getElementById('provinceFilter').value;
-                let district = document.getElementById('districtFilter').value;
-                let sector = document.getElementById('sectorFilter').value; // Need sector for granular crop
-                
-                // Force defaults for Study Area if no filters set
-                if (!district && !sector) {
-                    district = 'Bugesera';
-                    sector = 'Kamabuye';
-                    // We don't set province to avoid confusion if UI doesn't match
-                }
-
-                // Hardcoded Source
-                const source = 'postgres';
-                
-                const modeEl = document.getElementById('mapMode');
-                const mode = modeEl ? modeEl.value : 'malaria';
-
-                // Update Legend
-                updateLegend(mode);
-
-                // Get selected years from multi-select
-                const yearSelect = document.getElementById('yearFilter');
-                const selectedYears = Array.from(yearSelect.selectedOptions).map(option => option.value);
-                const yearsParam = selectedYears.length > 0 ? selectedYears.join(',') : '';
-                
-                // Fetch GeoJSON with years
-                // Note: We need to pass sector if we are cropping to it
-                const response = await fetch(`/analytics_dashboard/api/map-data/?province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}&sector=${encodeURIComponent(sector)}&source=${source}&years=${encodeURIComponent(yearsParam)}`);
-                const data = await response.json();
-                
-                // Clear existing layer
-                if (geojsonLayer) {
-                    map.removeLayer(geojsonLayer);
-                }
-                
-                if (data.features && data.features.length > 0) {
-                    // Add new layer with styling
-                    geojsonLayer = L.geoJSON(data, {
-                        style: function(feature) {
-                            return getMapStyle(feature, mode);
-                        },
-                        onEachFeature: function(feature, layer) {
-                            let title = feature.properties.village || feature.properties.sector || 'Location';
-                            
-                            let popupContent = `
-                                <div style="font-family: 'Segoe UI', sans-serif; min-width: 220px;">
-                                    <h4 style="margin: 0 0 8px; color: #1a1a2e; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; font-size: 16px;">
-                                        ${title}
-                                    </h4>
-                                    <div style="font-size: 13px; color: #555;">
-                            `;
-
-                            if (mode === 'malaria') {
-                                if (feature.properties.has_data) {
-                                    const riskColor = feature.properties.risk_level === 'High' ? '#dc3545' : 
-                                                      feature.properties.risk_level === 'Medium' ? '#ffc107' : '#28a745';
-                                    popupContent += `
-                                        <div style="background: #f8f9fa; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                                <span>Positivity Rate:</span>
-                                                <span style="font-weight:800; color:${riskColor}">${feature.properties.positivity_rate}%</span>
-                                            </div>
-                                            <div style="display:flex; justify-content:space-between;">
-                                                <span>Risk Level:</span>
-                                                <span style="font-weight:700; color:${riskColor}">${feature.properties.risk_level}</span>
-                                            </div>
-                                        </div>`;
-                                } else {
-                                    popupContent += `<div style="padding:5px; color:#999; font-style:italic; margin-bottom:8px;">No Malaria Data</div>`;
-                                }
-                            } else {
-                                // Slope Mode
-                                popupContent += `
-                                    <div style="background: #f8f9fa; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                                        <strong>Max Slope:</strong> ${feature.properties.max_slope ? parseFloat(feature.properties.max_slope).toFixed(1) + '°' : 'N/A'}<br>
-                                        <strong>Mean Slope:</strong> ${feature.properties.mean_slope ? parseFloat(feature.properties.mean_slope).toFixed(1) + '°' : 'N/A'}<br>
-                                        <strong>Class:</strong> ${feature.properties.slope_class || 'N/A'}
-                                    </div>`;
-                            }
-
-                            popupContent += `
-                                <strong>District:</strong> ${feature.properties.district || 'N/A'}<br>
-                                <strong>Sector:</strong> ${feature.properties.sector || 'N/A'}<br>
-                            `;
-                            
-                            popupContent += `</div></div>`;
-                            layer.bindPopup(popupContent);
-                        }
-                    }).addTo(map);
-                    
-                    // Zoom to fit with padding (Framing)
-                    map.fitBounds(geojsonLayer.getBounds(), {padding: [50, 50], maxZoom: 14});
-                } else {
-                     console.log("No features found for map selection");
-                }
-            } catch (error) {
-                console.error("Error loading map:", error);
-            }
-        }
-
-        function updateLegend(mode) {
-            if (legendControl) {
-                map.removeControl(legendControl);
-            }
-
-            legendControl = L.control({position: 'bottomright'});
-            legendControl.onAdd = function (map) {
-                const div = L.DomUtil.create('div', 'info legend');
-                div.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-                div.style.padding = '10px';
-                div.style.borderRadius = '5px';
-                div.style.boxShadow = '0 0 15px rgba(0,0,0,0.2)';
-                
-                if (mode === 'malaria') {
-                    div.innerHTML = `
-                        <h5 style="margin:0 0 8px;font-size:13px;font-weight:bold;">Malaria Risk Level</h5>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#dc3545;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">High (> 5%)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ffc107;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">Medium (1 - 5%)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#28a745;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">Low (< 1%)</span></div>
-                        <div style="display:flex;align-items:center;"><span style="background:#6c757d;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;opacity:0.3;"></span><span style="font-size:12px">No Data</span></div>
-                    `;
-                } else {
-                    div.innerHTML = `
-                        <h5 style="margin:0 0 8px;font-size:13px;font-weight:bold;">Max Slope (Degrees)</h5>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#d32f2f;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">> 16.5 (Red)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ff9800;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">10.34 - 16.49 (Orange)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ffeb3b;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">6.17 - 10.33 (Yellow)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#99e65f;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">2.73 - 6.16 (Lt Green)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#28a745;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">0 - 2.72 (Green)</span></div>
-                    `;
-                }
-                return div;
-            };
-            legendControl.addTo(map);
-        }
-        
-        // Hook into existing update function
-        const originalUpdateDashboard = window.updateDashboard || function(){};
-        window.updateDashboard = function() {
-             // Call original
-             // ... existing logic via other calls
-             loadDashboardData();
-             loadMap(); // Update map on filter change
-        };
 
         // ===== LOCATION FILTERING =====
         async function loadProvinces() {
             try {
-                const response = await fetch('/analytics_dashboard/api/locations/provinces/');
+                const response = await fetch('/geospatial-merger/api/locations/provinces/');
                 const data = await response.json();
                 const select = document.getElementById('provinceFilter');
                 
@@ -1000,7 +768,7 @@
 
             try {
                 document.getElementById('districtFilter').disabled = false;
-                const response = await fetch(`/analytics_dashboard/api/locations/districts/?province=${encodeURIComponent(province)}`);
+                const response = await fetch(`/geospatial-merger/api/locations/districts/?province=${encodeURIComponent(province)}`);
                 const data = await response.json();
                 const select = document.getElementById('districtFilter');
                 
@@ -1033,7 +801,7 @@
                 if (province) params.append('province', province);
                 if (district) params.append('district', district);
                 
-                const response = await fetch(`/analytics_dashboard/api/locations/sectors/?${params}`);
+                const response = await fetch(`/geospatial-merger/api/locations/sectors/?${params}`);
                 const data = await response.json();
                 const select = document.getElementById('sectorFilter');
                 
@@ -1053,132 +821,7 @@
             const province = document.getElementById('provinceFilter').value;
             const district = document.getElementById('districtFilter').value;
             const sector = document.getElementById('sectorFilter').value;
-
-            // Get selected years
-            const yearSelect = document.getElementById('yearFilter');
-            const selectedYears = Array.from(yearSelect.selectedOptions).map(option => option.value);
-            // ==========================================
-        // DYNAMIC LOCATION FILTERS
-        // ==========================================
-        
-        async function loadProvinces() {
-            try {
-                const response = await fetch('/analytics_dashboard/api/locations/provinces/');
-                const data = await response.json();
-                const select = document.getElementById('provinceFilter');
-                
-                // Keep default option
-                select.innerHTML = '<option value="">Select Province...</option>';
-                
-                data.provinces.forEach(p => {
-                    const option = document.createElement('option');
-                    option.value = p;
-                    option.textContent = p;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error loading provinces:', error);
-            }
-        }
-
-        async function loadDistricts(province) {
-            try {
-                let url = '/analytics_dashboard/api/locations/districts/';
-                if (province) url += `?province=${encodeURIComponent(province)}`;
-                
-                const response = await fetch(url);
-                const data = await response.json();
-                const select = document.getElementById('districtFilter');
-                
-                select.innerHTML = '<option value="">Select District...</option>';
-                
-                data.districts.forEach(d => {
-                    const option = document.createElement('option');
-                    option.value = d;
-                    option.textContent = d;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error loading districts:', error);
-            }
-        }
-
-        async function loadSectors(province, district) {
-            try {
-                let url = '/analytics_dashboard/api/locations/sectors/?';
-                if (province) url += `province=${encodeURIComponent(province)}&`;
-                if (district) url += `district=${encodeURIComponent(district)}`;
-                
-                const response = await fetch(url);
-                const data = await response.json();
-                const select = document.getElementById('sectorFilter');
-                
-                select.innerHTML = '<option value="">Select Sector...</option>';
-                
-                data.sectors.forEach(s => {
-                    const option = document.createElement('option');
-                    option.value = s;
-                    option.textContent = s;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error loading sectors:', error);
-            }
-        }
-
-        function onProvinceChange() {
-            const province = document.getElementById('provinceFilter').value;
             
-            // multiple resets
-            document.getElementById('districtFilter').innerHTML = '<option value="">Select District...</option>';
-            document.getElementById('sectorFilter').innerHTML = '<option value="">Select Sector...</option>';
-            
-            if (province) {
-                loadDistricts(province);
-            } else {
-                // If cleared, maybe load all districts or just clear?
-                // Let's load all districts if no province selected (optional)
-                loadDistricts(); 
-            }
-            updateDashboard();
-        }
-
-        function onDistrictChange() {
-            const province = document.getElementById('provinceFilter').value;
-            const district = document.getElementById('districtFilter').value;
-            
-            document.getElementById('sectorFilter').innerHTML = '<option value="">Select Sector...</option>';
-            
-            if (district) {
-                loadSectors(province, district);
-            }
-            updateDashboard();
-        }
-
-        function clearFilters() {
-            document.getElementById('provinceFilter').value = "";
-            document.getElementById('districtFilter').value = "";
-            document.getElementById('sectorFilter').value = "";
-            
-            // Reset dropdown contents
-            loadDistricts(); // Reload full list
-            document.getElementById('sectorFilter').innerHTML = '<option value="">Select Sector...</option>';
-            
-            // Reset Year to default if needed, or keep as is
-            
-            updateDashboard();
-        }
-
-        // Initialize Filters on Load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadProvinces();
-            loadDistricts(); // Load all initially
-            // updateDashboard() is called at end of script
-        });
-            if (selectedYears.length > 0) {
-                params.append('years', selectedYears.join(','));
-            }
-
             if (province) params.append('province', province);
             if (district) params.append('district', district);
             if (sector) params.append('sector', sector);
@@ -1198,104 +841,53 @@
 
         // ===== CHART INITIALIZATION =====
         function initializeCharts() {
-            const ctx = (id) => {
-                const el = document.getElementById(id);
-                return el ? el.getContext('2d') : null;
-            };
+            const ctx = (id) => document.getElementById(id).getContext('2d');
             
             // Gender Chart
-            const genderCtx = ctx('genderChart');
-          // --- MAP STYLING FUNCTION ---
-        // Defined outside to be cleaner
-        function getMapStyle(feature, mode) {
-             // --- MODE: MALARIA RISK ---
-             if (mode === 'malaria') {
-                if (feature.properties.has_data) {
-                    const rate = parseFloat(feature.properties.positivity_rate);
-                    // 5-Class Diverging Scale (Green -> Red)
-                    // High opacity fill, strong black border
-                    if (rate < 1) return { fillColor: '#1a9850', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 };
-                    if (rate < 5) return { fillColor: '#91cf60', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 };
-                    if (rate < 15) return { fillColor: '#fee08b', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 }; 
-                    if (rate < 30) return { fillColor: '#fc8d59', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 }; 
-                    return { fillColor: '#d73027', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 }; 
+            charts.gender = new Chart(ctx('genderChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true, max: 100 } }
                 }
-                return { fillColor: '#e9ecef', weight: 1, opacity: 1, color: 'black', dashArray: '3', fillOpacity: 0.4 };
-            }
-            
-            // --- MODE: SLOPE ANALYSIS ---
-            else {
-                let maxSlope = feature.properties.max_slope;
-                if (maxSlope !== undefined && maxSlope !== null) {
-                    maxSlope = parseFloat(maxSlope);
-                    // Same thresholds as Legend, with strong black borders
-                    if (maxSlope <= 2.72) return { fillColor: '#28a745', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 };
-                    if (maxSlope <= 6.16) return { fillColor: '#99e65f', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 };
-                    if (maxSlope <= 10.33) return { fillColor: '#ffeb3b', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 };
-                    if (maxSlope <= 16.49) return { fillColor: '#ff9800', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 };
-                    return { fillColor: '#d32f2f', weight: 2, opacity: 1, color: 'black', fillOpacity: 0.8 };
-                }
-                return { fillColor: '#cccccc', weight: 1, opacity: 1, color: 'black', fillOpacity: 0.4 };
-            }
-        }
-            if (genderCtx) {
-                charts.gender = new Chart(genderCtx, {
-                    type: 'bar',
-                    data: { labels: [], datasets: [] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } },
-                        scales: { y: { beginAtZero: true, max: 100 } }
-                    }
-                });
-            }
+            });
 
             // Precipitation Chart
-            const precipCtx = ctx('precipitationChart');
-            if (precipCtx) {
-                charts.precipitation = new Chart(precipCtx, {
-                    type: 'line',
-                    data: { labels: [], datasets: [] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
-                });
-            }
-
-            // Temperature Chart
-            const tempCtx = ctx('temperatureChart');
-            if (tempCtx) {
-                charts.temperature = new Chart(tempCtx, {
-                    type: 'line',
-                    data: { labels: [], datasets: [] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } },
-                        scales: { y: { beginAtZero: true } }
-                    }
-                });
-            }
+            charts.precipitation = new Chart(ctx('precipitationChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
 
             // Monthly Trend Chart
-            const trendCtx = ctx('monthlyTrendChart');
-            if (trendCtx) {
-                charts.trend = new Chart(trendCtx, {
-                    type: 'line',
-                    data: { labels: [], datasets: [] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } },
-                        scales: { y: { beginAtZero: true } }
-                    }
-                });
-            }
+            charts.trend = new Chart(ctx('monthlyTrendChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
 
-            // Location Chart REMOVED (Replaced by Map)
+            // Location Chart
+            charts.location = new Chart(ctx('locationChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
         }
 
         // ===== DATA LOADING =====
@@ -1304,153 +896,68 @@
             const queryString = params ? '?' + params : '';
             
             try {
-                // KPI Data - FIX URL
-                const kpiResponse = await fetch(`/analytics_dashboard/api/kpi/${queryString}`);
-                if (!kpiResponse.ok) throw new Error('KPI fetch failed');
+                // KPI Data
+                const kpiResponse = await fetch(`/geospatial-merger/api/dashboard/kpi/${queryString}`);
                 const kpiData = await kpiResponse.json();
                 document.getElementById('totalPositive').textContent = kpiData.total_positive.toLocaleString();
                 document.getElementById('totalTests').textContent = kpiData.total_tests.toLocaleString();
                 document.getElementById('totalNegative').textContent = kpiData.total_negative.toLocaleString();
                 document.getElementById('avgPositivityRate').textContent = kpiData.avg_positivity_rate + '%';
 
-                // Helper to get years text
-                const getYearsText = (years) => {
-                    if (!years || years.length === 0) return '';
-                    const sorted = years.map(Number).sort((a,b) => a-b);
-                    if (sorted.length === 1) return `(${sorted[0]})`;
-                    return `(${sorted[0]}-${sorted[sorted.length-1]})`;
-                };
-
-                // Gender Data - FIX URL
-                const genderResponse = await fetch(`/analytics_dashboard/api/gender/${queryString}`);
+                // Gender Data
+                const genderResponse = await fetch(`/geospatial-merger/api/dashboard/gender/${queryString}`);
                 const genderData = await genderResponse.json();
-                
-                // Gender Chart
-                const genderCtx = document.getElementById('genderChart').getContext('2d'); 
-                if (genderCtx) {
-                    const yearColors = ['#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2', '#fd7e14'];
-                    let datasets = [];
-                    const years = genderData.available_years || Object.keys(genderData).filter(key => !isNaN(parseInt(key)) && key !== 'labels');
-                    const titleYears = getYearsText(years);
-                    
-                    years.forEach((year, index) => {
-                        if (genderData[year]) {
-                            datasets.push({
-                                label: year.toString(),
-                                data: genderData[year],
-                                backgroundColor: yearColors[index % yearColors.length],
-                                borderRadius: 6
-                            });
-                        }
-                    });
-
-                    if (charts.gender) charts.gender.destroy();
-                    charts.gender = new Chart(genderCtx, {
-                        type: 'bar',
-                        data: { labels: genderData.labels, datasets: datasets },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { position: 'bottom' },
-                                title: { display: true, text: `Malaria Positivity Rate (%) by Gender ${titleYears}` }
-                            },
-                            scales: {
-                                y: { beginAtZero: true, max: 100, title: { display: true, text: 'Positivity Rate (%)' } }
-                            }
-                        }
-                    });
+                if (charts.gender && genderData.labels.length > 0) {
+                    charts.gender.data = {
+                        labels: genderData.labels,
+                        datasets: [
+                            { label: '2021', data: genderData['2021'], backgroundColor: '#28a745', borderRadius: 6 },
+                            { label: '2022', data: genderData['2022'], backgroundColor: '#ffc107', borderRadius: 6 },
+                            { label: '2023', data: genderData['2023'], backgroundColor: '#dc3545', borderRadius: 6 }
+                        ]
+                    };
+                    charts.gender.update();
                 }
 
                 // Precipitation Data
-                const precipResponse = await fetch(`/analytics_dashboard/api/precipitation/${queryString}`);
+                const precipResponse = await fetch(`/geospatial-merger/api/dashboard/precipitation/${queryString}`);
                 const precipData = await precipResponse.json();
-                
                 if (charts.precipitation) {
-                    const yearColors = ['#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2'];
-                    const bgColors = ['rgba(40, 167, 69, 0.1)', 'rgba(255, 193, 7, 0.1)', 'rgba(220, 53, 69, 0.1)', 'rgba(23, 162, 184, 0.1)', 'rgba(102, 16, 242, 0.1)'];
-                    
-                    // Identify years present in data
-                    const years = Object.keys(precipData).filter(key => !isNaN(parseInt(key)) && key !== 'labels');
-                    const titleYears = getYearsText(years);
-                    
-                    let datasets = [];
-                    years.forEach((year, index) => {
-                        datasets.push({
-                            label: year.toString(),
-                            data: precipData[year],
-                            borderColor: yearColors[index % yearColors.length],
-                            backgroundColor: bgColors[index % bgColors.length],
-                            tension: 0.4,
-                            fill: true
-                        });
-                    });
-
-                    charts.precipitation.data = { labels: precipData.labels, datasets: datasets };
-                    charts.precipitation.options.plugins.title = { display: true, text: `Monthly Average Precipitation ${titleYears}` }; 
+                    charts.precipitation.data = {
+                        labels: precipData.labels,
+                        datasets: [
+                            { label: '2021', data: precipData['2021'], borderColor: '#28a745', tension: 0.4, fill: true, backgroundColor: 'rgba(40, 167, 69, 0.1)' },
+                            { label: '2022', data: precipData['2022'], borderColor: '#ffc107', tension: 0.4, fill: true, backgroundColor: 'rgba(255, 193, 7, 0.1)' },
+                            { label: '2023', data: precipData['2023'], borderColor: '#dc3545', tension: 0.4, fill: true, backgroundColor: 'rgba(220, 53, 69, 0.1)' }
+                        ]
+                    };
                     charts.precipitation.update();
                 }
 
-                // Temperature Data
-                const tempResponse = await fetch(`/analytics_dashboard/api/temperature/${queryString}`);
-                const tempData = await tempResponse.json();
-                
-                if (charts.temperature) {
-                    const yearColors = ['#ff7f50', '#ff4500', '#8b0000', '#d2691e', '#a0522d'];
-                    const years = Object.keys(tempData).filter(key => !isNaN(parseInt(key)) && key !== 'labels');
-                    const titleYears = getYearsText(years);
-
-                    let datasets = [];
-                    years.forEach((year, index) => {
-                        datasets.push({
-                            label: year.toString(),
-                            data: tempData[year],
-                            borderColor: yearColors[index % yearColors.length],
-                            tension: 0.4,
-                            fill: false
-                        });
-                    });
-
-                    charts.temperature.data = { labels: tempData.labels, datasets: datasets };
-                    charts.temperature.options.plugins.title = { display: true, text: `Monthly Average Temperature ${titleYears}` };
-                    charts.temperature.update();
-                }
-
                 // Monthly Trend Data
-                const trendResponse = await fetch(`/analytics_dashboard/api/monthly-trend/${queryString}`);
-                const trendData = trendResponse.ok ? await trendResponse.json() : { labels: [], available_years: [] };
-                
+                const trendResponse = await fetch(`/geospatial-merger/api/dashboard/monthly-trend/${queryString}`);
+                const trendData = await trendResponse.json();
                 if (charts.trend) {
-                    const yearColors = ['#17a2b8', '#dc3545', '#ffc107', '#28a745', '#6610f2']; // Different base set
-                    const years = trendData.available_years || Object.keys(trendData).filter(key => !isNaN(parseInt(key)) && key !== 'labels');
-                    const titleYears = getYearsText(years);
-
-                    let datasets = [];
-                    years.forEach((year, index) => {
-                        datasets.push({
-                            label: year.toString(),
-                            data: trendData[year],
-                            borderColor: yearColors[index % yearColors.length],
-                            tension: 0.3,
-                            fill: false
-                        });
-                    });
-
-                    charts.trend.data = { labels: trendData.labels, datasets: datasets };
-                    charts.trend.options.plugins.title = { display: true, text: `Monthly Positivity Rate Trend ${titleYears}` };
+                    charts.trend.data = {
+                        labels: trendData.labels,
+                        datasets: [
+                            { label: '2021', data: trendData['2021'], borderColor: '#28a745', fill: false, tension: 0.4 },
+                            { label: '2022', data: trendData['2022'], borderColor: '#ffc107', fill: false, tension: 0.4 },
+                            { label: '2023', data: trendData['2023'], borderColor: '#dc3545', fill: false, tension: 0.4 }
+                        ]
+                    };
                     charts.trend.update();
                 }
 
                 // Villages Data
-                const villagesResponse = await fetch(`/analytics_dashboard/api/villages/${queryString}`);
-                const villagesData = villagesResponse.ok ? await villagesResponse.json() : { villages: [] };
+                const villagesResponse = await fetch(`/geospatial-merger/api/dashboard/villages/${queryString}`);
+                const villagesData = await villagesResponse.json();
                 const tableBody = document.getElementById('villageTableBody');
                 tableBody.innerHTML = '';
-                villagesData.villages.forEach((v, index) => {
+                villagesData.villages.forEach(v => {
                     const riskLevel = v.rate > 30 ? 'high' : v.rate > 20 ? 'medium' : 'low';
                     const row = `
                         <tr>
-                            <td>${index + 1}</td>
                             <td><strong>${v.village}</strong></td>
                             <td>${v.tests}</td>
                             <td>${v.positive}</td>
@@ -1463,7 +970,7 @@
                 });
 
                 // Location Summary Data
-                const summaryResponse = await fetch(`/analytics_dashboard/api/location-summary/?group_by=district${params ? '&' + params : ''}`);
+                const summaryResponse = await fetch(`/geospatial-merger/api/dashboard/location-summary/?group_by=district${params ? '&' + params : ''}`);
                 const summaryData = await summaryResponse.json();
                 const summaryBody = document.getElementById('summaryTableBody');
                 summaryBody.innerHTML = '';

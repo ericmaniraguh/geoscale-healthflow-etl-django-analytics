@@ -34,7 +34,7 @@ class VillageAdminBoundariesETLView(View):
         # PostgreSQL staging database settings
         self.pg_config = {
             'host': getattr(settings, 'STAGING_DB_HOST', 'localhost'),
-            'port': getattr(settings, 'STAGING_DB_PORT', 5433),
+            'port': getattr(settings, 'STAGING_DB_PORT',5444),
             'database': getattr(settings, 'STAGING_DB_NAME', 'data_pipeline_hc_staging_db'),
             'user': getattr(settings, 'STAGING_DB_USER', 'postgres'),
             'password': getattr(settings, 'STAGING_DB_PASSWORD', 'admin'),
