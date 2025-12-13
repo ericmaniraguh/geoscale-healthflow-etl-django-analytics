@@ -461,13 +461,21 @@ def process_boundaries_etl(request, base_url, is_ajax=False):
                     return redirect('etl_app:etl_dashboard')
         else:
             error_msg = response.text[:200] if response.text else "No error details"
+            try:
+                # Try to extract clean error message from JSON response
+                error_json = response.json()
+                if 'error' in error_json:
+                     error_msg = error_json['error']
+            except:
+                pass
+
             if is_ajax:
                 return JsonResponse({
                     'success': False,
-                    'error': f"Boundaries ETL failed with status {response.status_code}: {error_msg}"
+                    'error': f"{error_msg}"
                 }, status=response.status_code)
             else:
-                messages.error(request, f"Boundaries ETL failed with status {response.status_code}: {error_msg}")
+                messages.error(request, f"Boundaries ETL failed: {error_msg}")
                 return redirect('etl_app:etl_dashboard')
             
     except Exception as e:

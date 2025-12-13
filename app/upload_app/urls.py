@@ -26,11 +26,11 @@ urlpatterns = [
          dashboard_view.upload_slope_geojson, 
          name='slope-geojson'),
     
-    path('healthcenter-records/', 
+    path('health-center/malaria/', 
          dashboard_view.upload_healthcenter_records, 
          name='upload_healthcenter_malaria_records'),
     
-    path('hmis-records/', 
+    path('hmis/malaria/', 
          dashboard_view.upload_hmis_records, 
          name='upload_HMIS_malaria_records'),
     

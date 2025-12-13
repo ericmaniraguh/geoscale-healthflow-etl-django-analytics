@@ -43,9 +43,17 @@ class VillageAdminBoundariesETLView(View):
     def connect_mongodb(self) -> Optional[MongoClient]:
         """Connect to MongoDB using the shapefile URI"""
         try:
+            masked_uri = self.mongo_uri.split('@')[-1] if '@' in self.mongo_uri else self.mongo_uri
+            logger.info(f"Connecting to MongoDB: URI=...@{masked_uri}, DB={self.mongo_db}, Collection={self.mongo_collection}")
+            
             client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=30000)
             client.admin.command('ismaster')
             logger.info(f"Successfully connected to MongoDB: {self.mongo_db}")
+            
+            # Debug: Check collection directly immediately after connection
+            count = client[self.mongo_db][self.mongo_collection].count_documents({})
+            logger.info(f"Direct connection check - Documents in {self.mongo_collection}: {count}")
+            
             return client
         except Exception as e:
             logger.error(f"MongoDB connection failed: {e}")
@@ -115,22 +123,25 @@ class VillageAdminBoundariesETLView(View):
             if province:
                 # Try both Province and Prov_name fields
                 query['$or'] = [
-                    {"Province": {"$regex": f"^{province}$", "$options": "i"}},
-                    {"Prov_name": {"$regex": province, "$options": "i"}}
+                    {"Province": {"$regex": f"^{re.escape(province)}$", "$options": "i"}},
+                    {"Prov_name": {"$regex": f"^{re.escape(province)}$", "$options": "i"}},
+                    {"Prov_Enlgi": {"$regex": f"^{re.escape(province)}$", "$options": "i"}}
                 ]
             
             if district:
-                query["District"] = {"$regex": f"^{district}$", "$options": "i"}
+                query["District"] = {"$regex": f"^{re.escape(district)}$", "$options": "i"}
             
             if sector:
-                query["Sector_1"] = {"$regex": f"^{sector}$", "$options": "i"}
+                query["Sector_1"] = {"$regex": f"^{re.escape(sector)}$", "$options": "i"}
+            
+            logger.info(f"Using MongoDB Query: {query}")
             
             # Execute query
             documents = list(collection.find(query))
             
             stats = {
                 'total_documents': len(documents),
-                'query_used': query,
+                'query_used': str(query),
                 'filters_applied': {
                     'province': province,
                     'district': district,

@@ -1212,209 +1212,277 @@
             console.log('Geospatial Dashboard initializing...');
             setupFileUploads();
             resetStatistics();
+            fetchGlobalStats(); // Fetch DB stats on load
             showAlert('Dashboard ready! Please upload your geospatial files.', 'info');
-            updateStatistics();
         });
+
+        async function fetchGlobalStats() {
+            try {
+                const response = await fetch('/geospatial/api/stats/global/');
+                if (response.ok) {
+                    const stats = await response.json();
+                    if (stats.total_boundaries !== undefined) {
+                        // Update UI with global stats
+                        document.getElementById('boundaryCount').textContent = stats.total_boundaries.toLocaleString();
+                        document.getElementById('processedCount').textContent = stats.total_boundaries.toLocaleString();
+                        document.getElementById('slopeCount').textContent = stats.total_slope_points?.toLocaleString() || '-';
+                        
+                        // Detailed stats
+                        document.getElementById('totalBoundaryFeatures').textContent = stats.total_boundaries.toLocaleString();
+                        document.getElementById('totalSlopePoints').textContent = stats.total_slope_points?.toLocaleString() || '-';
+                        
+                        // Assuming high success for persisted data
+                        if (stats.total_boundaries > 0) {
+                            document.getElementById('successRate').textContent = '100%';
+                            document.getElementById('processingSuccessRate').textContent = '100%';
+                        }
+                        
+                        // Restore session if available
+                        if (stats.latest_process_id && !currentProcessId) {
+                            console.log("Restoring session from latest process:", stats.latest_process_id);
+                            currentProcessId = stats.latest_process_id;
+                            
+                            // Enable preview/download buttons
+                            const downloadSection = document.getElementById('downloadSection');
+                            if (downloadSection) downloadSection.classList.add('show');
+                            
+                            document.getElementById('processStatus').textContent = 'Ready (Session Restored)';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch global stats", e);
+            }
+        }
 
         // Include all the JavaScript functions from Part 1 here
         // (The functions from the first artifact should be copied here)
         
-        // Mock functions for demonstration (replace with actual backend integration)
-        async function uploadFiles() {
-            // Simulate upload process
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            return 'mock-process-id-' + Date.now();
-        }
+        // Backend Integration Functions
 
-  async function startProcessing() {
-    console.log('Processing button clicked!');
-    
-    if (!files.boundary || !files.geotiff) {
-        showAlert('Please upload both files first', 'error');
-        return;
-    }
-
-    if (!validateFileType(files.boundary, 'boundary') || !validateFileType(files.geotiff, 'geotiff')) {
-        showAlert('Please upload valid files before processing', 'error');
-        return;
-    }
-
-    try {
-        // Initialize processing start time (IMPORTANT!)
-        processingStartTime = new Date();
-        
-        // Show processing UI
-        document.getElementById('progressPanel').style.display = 'block';
-        document.getElementById('noProcessingMessage').style.display = 'none';
-        
-        // Update button states
-        const uploadBtn = document.getElementById('uploadBtn');
-        const validateBtn = document.getElementById('validateBtn');
-        uploadBtn.disabled = true;
-        validateBtn.disabled = true;
-        uploadBtn.className = 'btn processing';
-        uploadBtn.innerHTML = ' Processing...';
-        
-        // Update sidebar status to "processing"
-        updateSidebarStatus('boundary', files.boundary.name, 'processing');
-        updateSidebarStatus('geotiff', files.geotiff.name, 'processing');
-        
-        // Update process status
-        document.getElementById('processStatus').textContent = 'Processing';
-        
-        // Start with initial progress
-        updateProgress(10, 'Initializing...');
-        addLogEntry('Starting geospatial processing...');
-
-        // Generate mock process ID
-        currentProcessId = 'mock-process-' + Date.now();
-        
-        // Simulate file upload
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        updateProgress(20, 'Files uploaded successfully');
-        addLogEntry(`Process ID: ${currentProcessId}`);
-        
-        // Start monitoring with live statistics
-        startProgressMonitoring(currentProcessId);
-        
-        showAlert('Processing started successfully!', 'success');
-        
-    } catch (error) {
-        console.error('Processing error:', error);
-        showAlert(`Processing failed: ${error.message}`, 'error');
-        addLogEntry(`ERROR: ${error.message}`);
-        resetProcessingState();
-    }
-}
-function resetProcessingState() {
-    const uploadBtn = document.getElementById('uploadBtn');
-    const validateBtn = document.getElementById('validateBtn');
-    
-    // Reset button states
-    uploadBtn.disabled = false;
-    validateBtn.disabled = false;
-    uploadBtn.className = 'btn btn-success';
-    uploadBtn.innerHTML = ' Start Processing';
-    
-    // Reset sidebar status to uploaded (if files are still valid)
-    if (files.boundary && validateFileType(files.boundary, 'boundary')) {
-        updateSidebarStatus('boundary', files.boundary.name, 'uploaded');
-    }
-    if (files.geotiff && validateFileType(files.geotiff, 'geotiff')) {
-        updateSidebarStatus('geotiff', files.geotiff.name, 'uploaded');
-    }
-    
-    // Clear intervals
-    if (progressInterval) {
-        clearInterval(progressInterval);
-        progressInterval = null;
-    }
-    
-    // Reset process status
-    document.getElementById('processStatus').textContent = 'Ready';
-}
-  
-  
-        function startProgressMonitoring(processId) {
-    let progress = 30;
-    let stepCount = 0;
-    const maxSteps = 15; // Total steps for completion
-    
-    // Show processing log
-    const processingLog = document.getElementById('processingLog');
-    processingLog.classList.add('show');
-    
-    addLogEntry('Starting real-time progress monitoring...');
-    
-    progressInterval = setInterval(() => {
-        stepCount++;
-        
-        // Calculate progress with some randomness
-        progress = Math.min(30 + (stepCount / maxSteps) * 65 + Math.random() * 5, 100);
-        
-        // Update progress bar
-        updateProgress(Math.round(progress), getProgressMessage(progress));
-        
-        // Update statistics in real-time (THIS IS THE KEY ADDITION)
-        updateLiveProcessingStats(progress, stepCount, maxSteps);
-        
-        // Switch to processing tab automatically
-        if (stepCount === 2) {
-            switchTab('process');
-        }
-        
-        // Complete processing when done
-        if (progress >= 100 || stepCount >= maxSteps) {
-            clearInterval(progressInterval);
-            progressInterval = null;
-            
-            // Final statistics update
-            const finalStats = {
-                completed: true,
-                file_statistics: {
-                    total_boundary_features: 150 + Math.floor(Math.random() * 50),
-                    total_slope_points: 45000 + Math.floor(Math.random() * 10000),
-                    processed_features: 148 + Math.floor(Math.random() * 10)
-                },
-                coordinate_info: {
-                    overlap_coverage: '95.2%',
-                    overlap_status: 'OVERLAP_ACHIEVED'
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
                 }
-            };
-            
-            onProcessingComplete(processId, finalStats);
+            }
+            return cookieValue;
         }
-    }, 1500); // Update every 1.5 seconds
-}
 
-// NEW FUNCTION: Update live processing statistics
-function updateLiveProcessingStats(progress, stepCount, maxSteps) {
-    // Calculate simulated statistics based on progress
-    const progressRatio = progress / 100;
-    
-    // Simulate boundary features being processed
-    const totalBoundaries = 150 + Math.floor(Math.random() * 50);
-    const processedBoundaries = Math.floor(totalBoundaries * progressRatio);
-    
-    // Simulate slope points being analyzed
-    const totalSlopePoints = 45000 + Math.floor(Math.random() * 10000);
-    const analyzedSlopePoints = Math.floor(totalSlopePoints * progressRatio);
-    
-    // Calculate success rate
-    const successRate = Math.min(95 + Math.random() * 4, 100);
-    
-    // Update the main statistics cards (TOP SECTION)
-    document.getElementById('boundaryCount').textContent = processedBoundaries.toLocaleString();
-    document.getElementById('slopeCount').textContent = analyzedSlopePoints.toLocaleString();
-    document.getElementById('processedCount').textContent = processedBoundaries.toLocaleString();
-    document.getElementById('successRate').textContent = `${successRate.toFixed(1)}%`;
-    
-    // Update detailed statistics (Statistics tab)
-    document.getElementById('totalBoundaryFeatures').textContent = totalBoundaries.toLocaleString();
-    document.getElementById('totalSlopePoints').textContent = totalSlopePoints.toLocaleString();
-    document.getElementById('processingSuccessRate').textContent = `${successRate.toFixed(1)}%`;
-    
-    // Update processing time
-    if (processingStartTime) {
-        const elapsed = Math.floor((new Date() - processingStartTime) / 1000);
-        const minutes = Math.floor(elapsed / 60);
-        const seconds = elapsed % 60;
-        const timeDisplay = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-        document.getElementById('processingTimeDisplay').textContent = timeDisplay;
-    }
-    
-    // Update spatial coverage and data quality
-    if (progress > 50) {
-        document.getElementById('spatialCoverage').textContent = `${(85 + progress * 0.15).toFixed(1)}%`;
-        document.getElementById('dataQuality').textContent = progress > 80 ? 'Excellent' : 'Good';
-    }
-    
-    // Log progress updates
-    if (stepCount % 3 === 0) { // Log every 3rd step
-        addLogEntry(`Processed ${processedBoundaries}/${totalBoundaries} boundary features`);
-        addLogEntry(`Analyzed ${analyzedSlopePoints.toLocaleString()} slope data points`);
-    }
-}
+        async function startProcessing() {
+            console.log('Processing button clicked!');
+            
+            if (!files.boundary || !files.geotiff) {
+                showAlert('Please upload both files first', 'error');
+                return;
+            }
+
+            if (!validateFileType(files.boundary, 'boundary') || !validateFileType(files.geotiff, 'geotiff')) {
+                showAlert('Please upload valid files before processing', 'error');
+                return;
+            }
+
+            try {
+                // Initialize processing start time
+                processingStartTime = new Date();
+                
+                // Show processing UI
+                document.getElementById('progressPanel').style.display = 'block';
+                document.getElementById('noProcessingMessage').style.display = 'none';
+                
+                // Update button states
+                const uploadBtn = document.getElementById('uploadBtn');
+                const validateBtn = document.getElementById('validateBtn');
+                uploadBtn.disabled = true;
+                validateBtn.disabled = true;
+                uploadBtn.className = 'btn processing';
+                uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                
+                updateSidebarStatus('boundary', files.boundary.name, 'processing');
+                updateSidebarStatus('geotiff', files.geotiff.name, 'processing');
+                
+                document.getElementById('processStatus').textContent = 'Uploading files...';
+                updateProgress(0, 'Starting upload...');
+                addLogEntry('Initiating secure file upload...');
+
+                // Step 1: Upload Files
+                const formData = new FormData();
+                formData.append('geojson', files.boundary);
+                formData.append('geotiff', files.geotiff);
+
+                const csrftoken = getCookie('csrftoken');
+                
+                const uploadResponse = await fetch('/geospatial/upload/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': csrftoken }
+                });
+
+                if (!uploadResponse.ok) throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+                const uploadResult = await uploadResponse.json();
+                
+                if (!uploadResult.success) {
+                    throw new Error(uploadResult.message || 'Upload failed');
+                }
+
+                const uploadedProcessId = uploadResult.process_id;
+                if (!uploadedProcessId) {
+                    throw new Error('No process ID returned from upload');
+                }
+
+                updateProgress(20, 'Files uploaded successfully');
+                addLogEntry(`Files uploaded. Process ID: ${uploadedProcessId}`);
+                addLogEntry('Initializing background merge process...');
+
+                // Step 2: Start Processing
+                const startFormData = new FormData();
+                startFormData.append('process_id', uploadedProcessId);
+
+                const startResponse = await fetch('/geospatial/api/merge/start/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: startFormData
+                });
+
+                if (!startResponse.ok) throw new Error('Failed to start processing');
+                const startResult = await startResponse.json();
+                
+                if (!startResult.success) {
+                    throw new Error(startResult.message || 'Failed to start background process');
+                }
+
+                currentProcessId = uploadedProcessId;
+                addLogEntry('Background processing started successfully');
+                showAlert('Processing started successfully!', 'success');
+                
+                // Step 3: Poll Status
+                startStatusPolling(currentProcessId);
+                
+            } catch (error) {
+                console.error('Processing error:', error);
+                showAlert(`Processing failed: ${error.message}`, 'error');
+                addLogEntry(`ERROR: ${error.message}`);
+                resetProcessingState();
+            }
+        }
+
+        function startStatusPolling(processId) {
+            let stepCount = 0;
+            // Clear any existing interval
+            if (progressInterval) clearInterval(progressInterval);
+
+            addLogEntry('Starting real-time progress monitoring...');
+            const processingLog = document.getElementById('processingLog');
+            processingLog.classList.add('show');
+
+            progressInterval = setInterval(async () => {
+                stepCount++;
+                try {
+                    const response = await fetch(`/geospatial/api/status/?process_id=${processId}`);
+                    if (!response.ok) return; 
+                    
+                    const data = await response.json();
+                    
+                    // Switch to processing tab automatically
+                    if (stepCount === 2) switchTab('process');
+
+                    if (data.status === 'completed') {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        updateProgress(100, 'Processing completed!');
+                        onProcessingComplete(processId, data);
+                    } else if (data.status === 'error') {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        addLogEntry(`ERROR: ${data.message || 'Unknown error'}`);
+                        showAlert(`Processing stopped: ${data.message}`, 'error');
+                        resetProcessingState();
+                        document.getElementById('processStatus').textContent = 'Error';
+                        updateSidebarStatus('boundary', files.boundary.name, 'error');
+                        updateSidebarStatus('geotiff', files.geotiff.name, 'error');
+                    } else {
+                        // Normal progress update
+                        const progress = data.progress || 0;
+                        updateProgress(progress, data.message || 'Processing...');
+                        
+                        // Update tracking stats
+                        if (data.file_stats) {
+                            updateRealStats(data.file_stats);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Polling error", e);
+                }
+            }, 2000);
+        }
+
+        function updateRealStats(stats) {
+            // Update UI with real stats from backend
+             if (stats.processed_features !== undefined) {
+                 document.getElementById('processedCount').textContent = stats.processed_features;
+                 // Assuming processed boundaries count
+                 document.getElementById('boundaryCount').textContent = stats.processed_features;
+            }
+            if (stats.total_slope_points !== undefined) {
+                 document.getElementById('slopeCount').textContent = stats.total_slope_points;
+                 // Detailed tab
+                 document.getElementById('totalSlopePoints').textContent = stats.total_slope_points;
+            }
+            if (stats.total_boundary_features !== undefined) {
+                 document.getElementById('totalBoundaryFeatures').textContent = stats.total_boundary_features;
+                 
+                  if (stats.total_boundary_features > 0) {
+                    const rate = (stats.processed_features / stats.total_boundary_features * 100).toFixed(1);
+                    document.getElementById('successRate').textContent = `${rate}%`;
+                    document.getElementById('processingSuccessRate').textContent = `${rate}%`;
+                  }
+            }
+            
+            // Time display
+            if (processingStartTime) {
+                const elapsed = Math.floor((new Date() - processingStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                const timeDisplay = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                document.getElementById('processingTimeDisplay').textContent = timeDisplay;
+            }
+        }
+
+        function resetProcessingState() {
+            const uploadBtn = document.getElementById('uploadBtn');
+            const validateBtn = document.getElementById('validateBtn');
+            
+            // Reset button states
+            uploadBtn.disabled = false;
+            validateBtn.disabled = false;
+            uploadBtn.className = 'btn btn-success';
+            uploadBtn.innerHTML = '<i class="fas fa-rocket"></i> Start Processing';
+            
+            // Reset sidebar status to uploaded (if files are still valid)
+            if (files.boundary && validateFileType(files.boundary, 'boundary')) {
+                updateSidebarStatus('boundary', files.boundary.name, 'uploaded');
+            }
+            if (files.geotiff && validateFileType(files.geotiff, 'geotiff')) {
+                updateSidebarStatus('geotiff', files.geotiff.name, 'uploaded');
+            }
+            
+            // Clear intervals
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            
+            document.getElementById('processStatus').textContent = 'Ready';
+        }
+
 
 // NEW FUNCTION: Get appropriate progress message
 function getProgressMessage(progress) {
@@ -1766,40 +1834,38 @@ function getProgressMessage(progress) {
         }
 
         async function loadPreview() {
-            const previewBtn = event.target;
+            if (!currentProcessId) {
+                showAlert('No active process to preview', 'error');
+                return;
+            }
+
+            const previewBtn = event.target || document.querySelector('.btn-info');
             previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
             previewBtn.disabled = true;
 
             try {
-                // Simulate loading preview data
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                // Fetch real preview from backend
+                const response = await fetch(`/geospatial/api/preview/?process_id=${currentProcessId}`);
+                
+                if (!response.ok) throw new Error('Failed to fetch preview');
+                
+                const result = await response.json();
                 
                 document.getElementById('noPreviewMessage').style.display = 'none';
                 document.getElementById('dataPreview').style.display = 'block';
                 
-                const sampleData = {
-                    type: "FeatureCollection",
-                    features: [
-                        {
-                            type: "Feature",
-                            properties: {
-                                id: 1,
-                                slope_mean: 15.2,
-                                slope_max: 23.8
-                            },
-                            geometry: {
-                                type: "Polygon",
-                                coordinates: [[[-74.0059, 40.7128], [-74.0058, 40.7129], [-74.0057, 40.7127], [-74.0059, 40.7128]]]
-                            }
-                        }
-                    ]
-                };
-                
-                document.getElementById('previewContent').textContent = JSON.stringify(sampleData, null, 2);
-                showAlert('Preview loaded successfully', 'success');
+                // Formatted JSON display
+                if (result.preview_data) {
+                    document.getElementById('previewContent').textContent = JSON.stringify(result.preview_data, null, 2);
+                    showAlert('Preview loaded successfully', 'success');
+                } else {
+                    document.getElementById('previewContent').textContent = "No data returned";
+                    showAlert('No preview data available', 'info');
+                }
                 
             } catch (error) {
-                showAlert('Failed to load preview', 'error');
+                console.error('Preview error:', error);
+                showAlert('Failed to load preview. Data might not be ready.', 'error');
             } finally {
                 previewBtn.innerHTML = '<i class="fas fa-eye"></i> Load Data Preview';
                 previewBtn.disabled = false;

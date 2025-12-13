@@ -9,6 +9,7 @@ import tempfile
 import uuid
 import threading
 from django.shortcuts import render, redirect
+from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -16,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth import logout
 from pymongo import MongoClient
 from .processors.batch_processor import GeospatialBatchProcessor
+from .processors.mongo_saver import GeospatialMongoSaver as MongoSaver
 
 def is_admin(user):
     return user.is_authenticated and (user.is_staff or user.is_superuser)
@@ -158,11 +160,16 @@ def get_results_preview(request):
     
     # Try MongoDB first
     try:
-        client = MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27017/'), 
-                           serverSelectionTimeoutMS=5000)
+        # Use Django settings for consistency
+        mongo_uri = getattr(settings, 'MONGO_URI', 'mongodb://localhost:27017/')
+        db_name = getattr(settings, 'MONGO_SHAPEFILE_DB', 'geospatial_wgs84_boundaries_db')
+        
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
         client.admin.command('ping')
-        db = client[os.getenv('MONGODB_DB', 'geospatial_db')]
-        collection = db['processed_data']
+        db = client[db_name]
+        # Allow customizable collection name but default to settings or WGS84 standard
+        collection_name = getattr(settings, 'MONGO_SHAPEFILE_COLLECTION', 'boundaries_slope_wgs84')
+        collection = db[collection_name]
         
         results = list(collection.find(
             {"process_id": process_id},
@@ -239,7 +246,6 @@ def export_merged_data(request):
     }, status=404)
 
 
-
 @login_required
 def check_admin_status(request):
     return JsonResponse({"is_admin": is_admin(request.user)})
@@ -251,3 +257,15 @@ def logout_user(request):
         logout(request)
         return JsonResponse({"success": True, "redirect": "/auth/login/"})
     return JsonResponse({"success": False})
+
+@user_passes_test(is_admin)
+@require_http_methods(["GET"])
+def get_global_stats(request):
+    """Get global statistics for dashboard"""
+    try:
+        # Initialize saver with a dummy ID just to get connection
+        saver = MongoSaver("dashboard_stats")
+        stats = saver.get_global_statistics()
+        return JsonResponse(stats)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

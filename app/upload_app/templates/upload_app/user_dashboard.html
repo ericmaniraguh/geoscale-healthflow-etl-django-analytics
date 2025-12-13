@@ -782,7 +782,15 @@
             </div>
 
             <!-- Messages -->
-            <div class="messages" id="messages"></div>
+            <div class="messages" id="messages">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
 
             <!-- Health Center Upload Form -->
             <div class="form-section active" id="health-center-form">
@@ -791,7 +799,8 @@
                     <div class="endpoint-url">Upload and manage health center malaria diagnostic records with location details</div>
                 </div>
                 
-                <form id="health-center-upload-form">
+                <form id="health-center-upload-form" action="{% url 'upload_app:upload_healthcenter_malaria_records' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
                     <div class="form-group">
                         <label for="hc_file">Upload Health Center Data (CSV/Excel) <span class="required">*</span></label>
                         <input type="file" id="hc_file" name="file" accept=".csv,.xlsx,.xls" required>
@@ -843,7 +852,8 @@
                     <div class="endpoint-url">Upload and manage HMIS malaria records with reporting details</div>
                 </div>
                 
-                <form id="hmis-api-upload-form">
+                <form id="hmis-api-upload-form" action="{% url 'upload_app:upload_HMIS_malaria_records' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
                     <div class="form-group">
                         <label for="hmis_file">File <span class="required">*</span></label>
                         <input type="file" id="hmis_file" name="file" accept=".csv,.xlsx,.xls,.json" required>
@@ -906,7 +916,8 @@
                     <div class="endpoint-url">Upload and manage weather station temperature data</div>
                 </div>
                 
-                <form id="temperature-upload-form">
+                <form id="temperature-upload-form" action="{% url 'upload_app:upload_temperature_data' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
                     <div class="form-group">
                         <label for="temp_file">Upload Temperature Data (CSV/Excel) <span class="required">*</span></label>
                         <input type="file" id="temp_file" name="file" accept=".csv,.xlsx,.xls" required>
@@ -947,7 +958,8 @@
                     <div class="endpoint-url">Upload and manage rainfall and precipitation data</div>
                 </div>
                 
-                <form id="precipitation-upload-form">
+                <form id="precipitation-upload-form" action="{% url 'upload_app:upload_precipitation_data' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
                     <div class="form-group">
                         <label for="prec_file">Upload Precipitation Data (CSV/Excel) <span class="required">*</span></label>
                         <input type="file" id="prec_file" name="file" accept=".csv,.xlsx,.xls" required>
@@ -1028,9 +1040,19 @@
                 // Form submissions
                 document.querySelectorAll('form').forEach(form => {
                     form.addEventListener('submit', (e) => {
-                        e.preventDefault();
+                        // Allow default submission (page reload)
                         const uploadType = form.id.replace('-upload-form', '');
-                        this.handleUploadSubmission(uploadType, form);
+                        
+                        // Show processing state on button
+                        const submitBtn = form.querySelector('.submit-btn');
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            submitBtn.classList.add('processing');
+                            submitBtn.innerHTML = `
+                                <div class="loading-spinner"></div>
+                                <span>Uploading...</span>
+                            `;
+                        }
                     });
                 });
             }
