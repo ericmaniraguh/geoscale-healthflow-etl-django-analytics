@@ -14,7 +14,8 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #02690a 0%, #014d06 100%);
             min-height: 100vh;
         }
 
@@ -136,6 +137,13 @@
         .upload-item:hover {
             transform: translateX(5px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-item.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+            background: #f8f9fa;
         }
 
         .upload-item.active {
@@ -306,7 +314,7 @@
         }
 
         .role.user {
-            background: linear-gradient(45deg, #007bff, #0056b3);
+            background: linear-gradient(45deg, #2b2c2c, #c3c5c7);
             color: white;
         }
 
@@ -362,7 +370,7 @@
         }
 
         .summary-card.processing {
-            border-left-color: #FF9800;
+            border-left-color: #067527;
         }
 
         .summary-card.time {
@@ -519,7 +527,7 @@
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #0c0d0e;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
@@ -530,7 +538,7 @@
         }
 
         .submit-btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(45deg, #6c757d, #495057);
             color: white;
             border: none;
             padding: 15px 30px;
@@ -1226,6 +1234,8 @@
                     statusIndicator.classList.add('completed');
                     statusBadge.textContent = 'COMPLETED';
                     statusBadge.className = 'status-badge completed';
+                    // Disable the card after completion
+                    card.classList.add('disabled');
                 } else if (status === 'processing') {
                     card.classList.add('processing');
                     statusIndicator.classList.add('processing');
