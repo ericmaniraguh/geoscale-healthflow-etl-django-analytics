@@ -998,6 +998,44 @@
             legendControl.addTo(map);
         }
         
+        function getMapStyle(feature, mode) {
+            if (mode === 'slope') {
+                return {
+                    fillColor: getSlopeColor(feature.properties.max_slope),
+                    weight: 1,
+                    opacity: 1,
+                    color: 'white',
+                    dashArray: '3',
+                    fillOpacity: 0.7
+                };
+            } else {
+                return {
+                    fillColor: getRiskColor(feature.properties.risk_level),
+                    weight: 1,
+                    opacity: 1,
+                    color: 'white',
+                    dashArray: '3',
+                    fillOpacity: 0.7
+                };
+            }
+        }
+
+        function getSlopeColor(slope) {
+            // Colors from Legend
+            return slope > 16.5 ? '#d32f2f' :
+                   slope > 10.33 ? '#ff9800' :
+                   slope > 6.16  ? '#ffeb3b' :
+                   slope > 2.73  ? '#99e65f' : 
+                                   '#28a745';
+        }
+
+        function getRiskColor(level) {
+            return level === 'High' ? '#dc3545' :
+                   level === 'Medium' ? '#ffc107' :
+                   level === 'Low' ? '#28a745' : 
+                                     '#6c757d';
+        }
+        
         // Hook into existing update function
         const originalUpdateDashboard = window.updateDashboard || function(){};
         window.updateDashboard = function() {
