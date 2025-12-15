@@ -1,0 +1,656 @@
+/* app/upload_app/static/upload_app/css/admin-dashboard.css */
+
+/* ==============================================
+   ADMIN DASHBOARD STYLES
+   ============================================== */
+
+/* Admin Header Styling */
+.admin-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 1.5rem 2rem;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 4px 20px rgba(44, 62, 80, 0.15);
+}
+
+.admin-header h1 {
+    color: white;
+    margin: 0;
+}
+
+.user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.user-info h1 {
+    font-size: 2rem;
+    margin: 0 0 0.5rem 0;
+}
+
+.user-details {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.username {
+    font-size: 1.1rem;
+}
+
+.badge-admin {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.user-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-logout {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-logout:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+    transform: translateY(-2px);
+    color: white;
+    text-decoration: none;
+}
+
+/* Welcome Section */
+.user-welcome {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2.5rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    border: 1px solid #dee2e6;
+}
+
+.user-welcome h2 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 2rem;
+}
+
+.dashboard-description {
+    color: #6c757d;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.feature-overview {
+    margin-top: 2rem;
+}
+
+.feature-stats {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.stat-label {
+    font-size: 0.95rem;
+    color: #7f8c8d;
+    text-align: center;
+}
+
+/* Upload Sections */
+.upload-section {
+    background: #ffffff;
+    border: 1px solid #e1e5e9;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.upload-section:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-color: #c8d6e5;
+}
+
+/* Admin Section Specific Styling */
+.admin-section {
+    border-left: 4px solid #dc3545;
+    background: rgba(220, 53, 69, 0.02);
+}
+
+.admin-section:hover {
+    background: rgba(220, 53, 69, 0.05);
+}
+
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f1f3f4;
+}
+
+.section-header h3 {
+    font-size: 1.4rem;
+    color: #2c3e50;
+    margin: 0;
+    font-weight: 600;
+}
+
+.section-description {
+    color: #6c757d;
+    font-size: 1rem;
+    margin: 0 0 2rem 0;
+    line-height: 1.5;
+}
+
+/* Section Badges */
+.section-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.section-badge.available {
+    background: #d1f2eb;
+    color: #0c5460;
+    border: 1px solid #7dcea0;
+}
+
+.section-badge.admin-only {
+    background: #fadbd8;
+    color: #922b21;
+    border: 1px solid #f1948a;
+}
+
+/* Form Styling */
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-section {
+    background: #fefefe;
+    border: 1px solid #f1f3f4;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #34495e;
+    margin: 0 0 1.5rem 0;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+/* Form Grid and Rows */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.form-row {
+    margin-bottom: 1.5rem;
+}
+
+.form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Form Fields */
+.form-col label,
+.form-row label {
+    font-weight: 500;
+    color: #2c3e50;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
+
+.form-col input,
+.form-col select,
+.form-row input,
+.form-row select,
+.form-row textarea {
+    padding: 0.75rem;
+    border: 2px solid #e1e8ed;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    background: #ffffff;
+    font-family: inherit;
+}
+
+.form-col input:focus,
+.form-col select:focus,
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-row textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* File Input Styling */
+input[type="file"] {
+    padding: 0.75rem;
+    border: 2px dashed #cbd5e0;
+    background: #f8f9fa;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+input[type="file"]:hover {
+    border-color: #3498db;
+    background: #e3f2fd;
+}
+
+input[type="file"]:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Special Input Types */
+input[type="date"] {
+    cursor: pointer;
+}
+
+input[type="url"] {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+/* Help Text */
+.form-help {
+    color: #6c757d;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+/* Button Styling */
+.btn-upload {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 2.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    margin-top: 1rem;
+    align-self: flex-start;
+}
+
+.btn-upload:hover {
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+
+/* Regular Upload Button */
+.btn-upload:not(.admin-btn) {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.btn-upload:not(.admin-btn):hover {
+    background: linear-gradient(135deg, #2980b9 0%, #1f618d 100%);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+/* Admin Button */
+.admin-btn {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.admin-btn:hover {
+    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+    color: white;
+}
+
+/* Messages */
+.messages {
+    margin-bottom: 2rem;
+}
+
+.alert {
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.alert-success {
+    background-color: #d1eddf;
+    border-color: #badbcc;
+    color: #155724;
+}
+
+.alert-error,
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+/* Required Field Indicators */
+.form-col label[for*="file"]:after,
+.form-col label[for*="tif_file"]:after,
+.form-col label[for*="dataset_name"]:after,
+.form-col label[for*="region"]:after,
+.form-col label[for*="year"]:after,
+.form-row label[for*="file"]:after,
+.form-row label[for*="tif_file"]:after,
+.form-row label[for*="dataset_name"]:after,
+.form-row label[for*="region"]:after,
+.form-row label[for*="year"]:after {
+    content: " *";
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* Form Validation States */
+.form-col input:invalid:not(:focus),
+.form-col select:invalid:not(:focus),
+.form-row input:invalid:not(:focus),
+.form-row select:invalid:not(:focus),
+.form-row textarea:invalid:not(:focus) {
+    border-color: #e74c3c;
+    background-color: #fff5f5;
+}
+
+.form-col input:valid:not(:focus),
+.form-col select:valid:not(:focus),
+.form-row input:valid:not(:focus),
+.form-row select:valid:not(:focus),
+.form-row textarea:valid:not(:focus) {
+    border-color: #27ae60;
+}
+
+/* Placeholder Styling */
+input::placeholder,
+textarea::placeholder {
+    color: #95a5a6;
+    font-style: italic;
+}
+
+input[placeholder*="30m"]::placeholder,
+input[placeholder*="EPSG"]::placeholder {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .user-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .user-actions {
+        justify-content: center;
+    }
+
+    .upload-section {
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .form-section {
+        padding: 1rem;
+    }
+
+    .btn-upload {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .feature-stats {
+        gap: 2rem;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-header {
+        padding: 1rem;
+    }
+
+    .user-welcome {
+        padding: 1.5rem;
+    }
+
+    .user-welcome h2 {
+        font-size: 1.5rem;
+    }
+
+    .dashboard-description {
+        font-size: 1rem;
+    }
+
+    .upload-section {
+        padding: 1rem;
+    }
+
+    .section-header h3 {
+        font-size: 1.2rem;
+    }
+
+    .form-section-title {
+        font-size: 1rem;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .upload-section {
+        border-width: 2px;
+        border-color: #000;
+    }
+
+    .section-badge {
+        border-width: 2px;
+    }
+
+    .form-col input,
+    .form-col select,
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+        border-width: 2px;
+        border-color: #000;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .upload-section,
+    .btn-upload,
+    .form-col input,
+    .form-col select,
+    .form-row input,
+    .form-row select,
+    .form-row textarea,
+    .btn-secondary,
+    .btn-logout {
+        transition: none;
+    }
+
+    .btn-upload:hover,
+    .btn-secondary:hover,
+    .btn-logout:hover {
+        transform: none;
+    }
+}
+
+
+.form-input,
+input[type="text"],
+input[type="email"], 
+input[type="tel"],
+input[type="password"],
+input[type="date"],   /* 👈 added */
+input[type="url"],    /* 👈 added */
+select {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  border: 2px solid #ddd !important;
+  border-radius: 6px !important;
+  font-size: 0.9rem !important;
+  box-sizing: border-box !important;
+  background-color: white !important;
+  color: #333 !important;
+  font-family: Arial, sans-serif !important;
+}
+
+
+/* Fixed red admin badge to match the style of green badges */
+.premium-admin-badge {
+    background: #dc3545 !important;
+    color: #ffffff !important;
+    padding: 3px 8px !important;
+    border-radius: 12px !important;
+    font-size: 9px !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    border: none !important;
+    box-shadow: none !important;
+    animation: none !important;
+    min-width: 45px !important;
+    text-align: center !important;
+    display: inline-block !important;
+}
+
+/* Remove all fancy animations and effects to match simple style */
+.premium-admin-badge i {
+    margin-right: 3px !important;
+    color: #ffffff !important;
+    animation: none !important;
+}
+
+/* Match the exact styling of other badges */
+.nav-link.geospatial-link.premium-admin .premium-admin-badge {
+    background: #dc3545 !important;
+    color: white !important;
+    font-size: 9px !important;
+    font-weight: bold !important;
+    padding: 3px 6px !important;
+    border-radius: 4px !important;
+    min-width: 45px !important;
+    text-align: center !important;
+    border: none !important;
+    box-shadow: none !important;
+    animation: none !important;
+}

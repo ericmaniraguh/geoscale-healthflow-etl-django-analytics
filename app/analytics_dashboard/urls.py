@@ -42,16 +42,12 @@ urlpatterns = [
     # API Endpoints for Dashboard Data
     path('api/kpi/', views.get_kpi_data, name='api_kpi'),
     path('api/gender/', views.get_gender_analysis, name='api_gender'),
-    path('api/precipitation/', views.get_precipitation_data, name='precipitation_data'),
-    path('api/temperature/', views.get_temperature_data, name='temperature_data'),
-    path('api/monthly-trend/', views.get_monthly_trend, name='monthly_trend'),
+    path('api/precipitation/', views.get_precipitation_data, name='api_precipitation'),
+    path('api/monthly-trend/', views.get_monthly_trend, name='api_monthly_trend'),
     path('api/villages/', views.get_villages_data, name='api_villages'),
     
     # NEW: Location summary endpoint
     path('api/location-summary/', views.get_location_summary, name='api_location_summary'),
-    
-    # NEW: Map Data endpoint
-    path('api/map-data/', views.get_map_data, name='api_map_data'),
     
     # Additional API endpoints
     path('api/refresh/', views.refresh_data, name='api_refresh'),
