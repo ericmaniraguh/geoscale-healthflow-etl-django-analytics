@@ -343,6 +343,8 @@ def process_weather_etl(request, base_url, is_ajax=False):
         # Prepare API data
         api_data = {
             'years': years,
+            'district': request.POST.get('district', '').strip(),
+            'sector': request.POST.get('sector', '').strip(),
             'save_to_postgres': True,
             'show_available': False
         }
@@ -351,10 +353,18 @@ def process_weather_etl(request, base_url, is_ajax=False):
         station_temp = request.POST.get('station_temp', '').strip()
         station_prec = request.POST.get('station_prec', '').strip()
         
-        if station_temp:
-            api_data['station_temp'] = station_temp
-        if station_prec:
-            api_data['station_prec'] = station_prec
+        # Validate required fields
+        if not api_data['district']:
+            raise ValueError("District field is required")
+        if not api_data['sector']:
+            raise ValueError("Sector field is required")
+        if not station_temp:
+            raise ValueError("Temperature Station field is required")
+        if not station_prec:
+            raise ValueError("Precipitation Station field is required")
+            
+        api_data['station_temp'] = station_temp
+        api_data['station_prec'] = station_prec
         
         logger.info(f"Weather API data: {api_data}")
         

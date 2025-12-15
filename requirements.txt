@@ -80,3 +80,5 @@ cryptography
 chardet
 pendulum
 
+
+whitenoise

@@ -71,6 +71,58 @@ def get_location_hierarchy(request):
     
     return province, district, sector
 
+def get_dynamic_weather_table(district=None):
+    """
+    Dynamically find the correct weather table based on district.
+    Searches for tables matching pattern: weather_%_prec_and_%_temp_{district}
+    """
+    base_pattern = "weather_%_prec_and_%_temp_%"
+    
+    query = """
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name LIKE %s
+    """
+    params = [base_pattern]
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            tables = [row[0] for row in cursor.fetchall()]
+            
+        if not tables:
+            logger.warning("No weather tables found in database")
+            return None
+            
+        # If district provided, try to find exact match
+        if district:
+            clean_district = re.sub(r'[^a-zA-Z0-9]', '_', district.lower())
+            # prioritize tables ending with the district name
+            matches = [t for t in tables if clean_district in t]
+            if matches:
+                # Pick the most recent one if multiple (assuming newer tables might be better, or just pick first)
+                selected = matches[0]
+                logger.info(f"Found weather table for district '{district}': {selected}")
+                return selected
+            # Reverting strict matching to allow fallback as per user request for flexibility
+            # else:
+            #    logger.info(f"No weather table found for district '{district}'")
+            #    return None
+                
+        # Fallback: finding 'no_district' or any table
+        no_district_matches = [t for t in tables if 'no_district' in t]
+        if no_district_matches:
+             return no_district_matches[0]
+             
+        # Ultimate fallback: return the first available weather table
+        logger.info(f"No specific match for district '{district}', using fallback: {tables[0]}")
+        return tables[0]
+        
+    except Exception as e:
+        logger.error(f"Error finding dynamic weather table: {e}")
+        return "weather_juru_prec_and_juru_temp_no_district" # Safe hardcoded fallback if DB query fails
+
 def get_year_filter(request):
     """
     Extract year parameter from request
@@ -269,11 +321,11 @@ def get_kpi_data(request):
             params.append(tuple(years))
             
         if district:
-            query += " AND filter_district = %s"
-            params.append(district)
+            query += " AND filter_district ILIKE %s"
+            params.append(district.strip())
         if sector:
-            query += " AND filter_sector = %s"
-            params.append(sector)
+            query += " AND filter_sector ILIKE %s"
+            params.append(sector.strip())
             
         with connection.cursor() as cursor:
             cursor.execute(query, params)
@@ -287,9 +339,9 @@ def get_kpi_data(request):
         # Get Population & API from API table (as summary table might lack these)
         api_query = "SELECT SUM(population), AVG(api) FROM hc_api_east_bugesera WHERE 1=1"
         api_params = []
-        if province: api_query += " AND province = %s"; api_params.append(province)
-        if district: api_query += " AND district = %s"; api_params.append(district)
-        if sector: api_query += " AND sector = %s"; api_params.append(sector)
+        if province: api_query += " AND province ILIKE %s"; api_params.append(province.strip())
+        if district: api_query += " AND district ILIKE %s"; api_params.append(district.strip())
+        if sector: api_query += " AND sector ILIKE %s"; api_params.append(sector.strip())
             
         with connection.cursor() as cursor:
             cursor.execute(api_query, api_params)
@@ -344,11 +396,11 @@ def get_gender_analysis(request):
             params.append(tuple(years))
             
         if district:
-            query += " AND district = %s"
-            params.append(district)
+            query += " AND district ILIKE %s"
+            params.append(district.strip())
         if sector:
-            query += " AND sector = %s"
-            params.append(sector)
+            query += " AND sector ILIKE %s"
+            params.append(sector.strip())
             
         # Group by gender and year
         query += " GROUP BY gender, year ORDER BY gender"
@@ -402,15 +454,18 @@ def get_gender_analysis(request):
 @cache_response(timeout=300)
 @handle_errors
 def get_precipitation_data(request):
-    """Get monthly precipitation data from weather_juru_prec_and_juru_temp_no_district"""
+    """Get monthly precipitation data for chart, separated by year."""
     province, district, sector = get_location_hierarchy(request)
     years_filter = get_year_filter(request)
     
     try:
-        # Query Postgres weather table
-        query = """
+        table_name = get_dynamic_weather_table(None)
+        if not table_name:
+            return JsonResponse({"labels": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], "available_years": []})
+            
+        query = f"""
             SELECT year, month, AVG(monthly_precipitation)
-            FROM weather_juru_prec_and_juru_temp_no_district
+            FROM {table_name}
             WHERE 1=1
         """
         params = []
@@ -419,76 +474,76 @@ def get_precipitation_data(request):
             query += " AND year IN %s"
             params.append(tuple(years_filter))
             
+        # Add Location Filter (Note: This assumes the table has 'district'/'sector' columns)
         if district:
-            # Filter by district column if it matches
             query += " AND (district ILIKE %s)"
-            params.append(district)
+            params.append(district.strip())
 
         if sector:
-            # Filter by sector using loose matching on station name since we don't have a direct sector column
-            # Assuming station name might contain sector name
-            query += " AND (prec_station ILIKE %s OR metadata ILIKE %s)"
-            sector_pattern = f"%{sector}%"
-            params.append(sector_pattern)
-            params.append(sector_pattern)
+            query += " AND (sector ILIKE %s)"
+            params.append(sector.strip())
             
-        group_by = " GROUP BY year, month ORDER BY month"
+        group_by = " GROUP BY year, month ORDER BY year, month" # ORDER BY YEAR is crucial
         query += group_by
         
         with connection.cursor() as cursor:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-        # Structure data for Chart.js
-        # rows: [(2021, 1, 50.5), (2021, 2, 60.0), ...]
-        
         labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         response_data = {"labels": labels}
         
-        # Determine years to return
-        target_years = years_filter if years_filter else [2021, 2022, 2023]
+        # Determine years present in the result set
+        found_years = sorted(list(set(r[0] for r in rows if r[0])))
+        response_data["available_years"] = found_years
         
-        # Organize by year
         data_map = {} # {2021: {1: 50, 2: 60}}
         for r in rows:
             y = r[0]
             m = int(r[1])
-            val = float(r[2]) if r[2] is not None else 0
+            val = round(float(r[2]), 1) if r[2] is not None else 0
             
             if y not in data_map: data_map[y] = {}
             data_map[y][m] = val
             
-        # Build arrays
-        for y in target_years:
-            year_series = [0] * 12
+        # Build arrays for all found years
+        for y in found_years:
+            year_series = [None] * 12 # Use None for missing month data
             if y in data_map:
                 for i in range(12):
-                    year_series[i] = data_map[y].get(i+1, 0)
+                    year_series[i] = data_map[y].get(i+1)
             response_data[str(y)] = year_series
             
         return JsonResponse(response_data)
 
     except Exception as e:
-        logger.error(f"Error getting precipitation data: {e}")
+        logger.error(f"Error getting precipitation data: {e}", exc_info=True)
         return JsonResponse({
             "labels": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            "2021": [], "2022": [], "2023": []
+            "available_years": []
         })
 
 @login_required
 @require_http_methods(["GET"])
 @cache_response(timeout=300)
 @handle_errors
+@login_required
+@require_http_methods(["GET"])
+@cache_response(timeout=300)
+@handle_errors
 def get_temperature_data(request):
-    """Get monthly temperature data from weather_juru_prec_and_juru_temp_no_district"""
+    """Get monthly temperature data for chart, separated by year."""
     province, district, sector = get_location_hierarchy(request)
     years_filter = get_year_filter(request)
     
     try:
-        # Query Postgres weather table
-        query = """
-            SELECT year, month, AVG(monthly_temperature)
-            FROM weather_juru_prec_and_juru_temp_no_district
+        table_name = get_dynamic_weather_table(None)
+        if not table_name:
+            return JsonResponse({"labels": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], "available_years": []})
+
+        query = f"""
+            SELECT year, month, AVG(monthly_temperature) -- Changed column to monthly_temperature
+            FROM {table_name}
             WHERE 1=1
         """
         params = []
@@ -497,18 +552,16 @@ def get_temperature_data(request):
             query += " AND year IN %s"
             params.append(tuple(years_filter))
             
+        # Add Location Filter
         if district:
             query += " AND (district ILIKE %s)"
-            params.append(district)
+            params.append(district.strip())
 
         if sector:
-            # Filter by sector using loose matching on station name
-            query += " AND (temp_station ILIKE %s OR metadata ILIKE %s)"
-            sector_pattern = f"%{sector}%"
-            params.append(sector_pattern)
-            params.append(sector_pattern)
+            query += " AND (sector ILIKE %s)"
+            params.append(sector.strip())
             
-        group_by = " GROUP BY year, month ORDER BY month"
+        group_by = " GROUP BY year, month ORDER BY year, month" # ORDER BY YEAR is crucial
         query += group_by
         
         with connection.cursor() as cursor:
@@ -518,31 +571,33 @@ def get_temperature_data(request):
         labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         response_data = {"labels": labels}
         
-        target_years = years_filter if years_filter else [2021, 2022, 2023]
+        # Determine years present in the result set
+        found_years = sorted(list(set(r[0] for r in rows if r[0])))
+        response_data["available_years"] = found_years
         
         data_map = {} 
         for r in rows:
             y = r[0]
             m = int(r[1])
-            val = float(r[2]) if r[2] is not None else 0
+            val = round(float(r[2]), 1) if r[2] is not None else 0
             
             if y not in data_map: data_map[y] = {}
             data_map[y][m] = val
             
-        for y in target_years:
-            year_series = [0] * 12
+        for y in found_years:
+            year_series = [None] * 12
             if y in data_map:
                 for i in range(12):
-                    year_series[i] = data_map[y].get(i+1, 0)
+                    year_series[i] = data_map[y].get(i+1)
             response_data[str(y)] = year_series
             
         return JsonResponse(response_data)
 
     except Exception as e:
-        logger.error(f"Error getting temperature data: {e}")
+        logger.error(f"Error getting temperature data: {e}", exc_info=True)
         return JsonResponse({
             "labels": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            "2021": [], "2022": [], "2023": []
+            "available_years": []
         })
 
 @login_required
@@ -569,11 +624,11 @@ def get_monthly_trend(request):
             params.append(tuple(years))
             
         if district:
-            query += " AND filter_district = %s"
-            params.append(district)
+            query += " AND filter_district ILIKE %s"
+            params.append(district.strip())
         if sector:
-            query += " AND filter_sector = %s"
-            params.append(sector)
+            query += " AND filter_sector ILIKE %s"
+            params.append(sector.strip())
             
         # Group by year, month
         query += " GROUP BY year, month, month_name ORDER BY month"
@@ -640,11 +695,11 @@ def get_villages_data(request):
             params.append(tuple(years))
             
         if district:
-             query += " AND district = %s"
-             params.append(district)
+             query += " AND district ILIKE %s"
+             params.append(district.strip())
         if sector:
-             query += " AND sector = %s"
-             params.append(sector)
+             query += " AND sector ILIKE %s"
+             params.append(sector.strip())
              
         query += " GROUP BY 1 HAVING COUNT(*) > 0 ORDER BY (SUM(CASE WHEN test_result = 'Positive' OR is_positive = true THEN 1 ELSE 0 END)::float / COUNT(*)) DESC LIMIT 50"
         
@@ -714,11 +769,11 @@ def get_location_summary(request):
             params.append(tuple(years))
         
         if district: 
-            query += " AND filter_district = %s"
-            params.append(district)
+            query += " AND filter_district ILIKE %s"
+            params.append(district.strip())
         if sector:
-            query += " AND filter_sector = %s"
-            params.append(sector)
+            query += " AND filter_sector ILIKE %s"
+            params.append(sector.strip())
         
         query += f" GROUP BY {col} ORDER BY SUM(positive_cases) DESC"
         
@@ -742,11 +797,11 @@ def get_location_summary(request):
             raw_params.append(tuple(years))
             
         if district:
-             village_query += " AND district = %s"
-             raw_params.append(district)
+             village_query += " AND district ILIKE %s"
+             raw_params.append(district.strip())
         if sector:
-             village_query += " AND sector = %s"
-             raw_params.append(sector)
+             village_query += " AND sector ILIKE %s"
+             raw_params.append(sector.strip())
              
         village_query += f" GROUP BY {raw_col}"
         
@@ -852,54 +907,56 @@ def logout_user(request):
 # MAP DATA API
 # ============================================================================
 
+# In your views.py, replace the existing get_map_data function:
+
 @login_required
 @require_http_methods(["GET"])
 @cache_response(timeout=300)
 @handle_errors
 def get_map_data(request):
-    """Get GeoJSON data for the map - Optimized SQL Version"""
+    """Get GeoJSON data for the map, linking boundary geometry, health data, and slope."""
     province, district, sector = get_location_hierarchy(request)
     years = get_year_filter(request)
     
-    # Defaults if missing (Study Area: Bugesera/Kamabuye)
-    if not district: district = "Bugesera"
-    if not sector: sector = "Kamabuye"
-    
+    # --- 1. Determine Boundary Table Name ---
+    import re
+    def sanitize(name):
+        if not name: return ""
+        return re.sub(r'[^a-zA-Z0-9]', '_', name.lower())[:30]
+
+    # Use the District for the boundary table name. Default to Bugesera if none.
+    dist_for_table = district or "Bugesera"
+    dist_part = sanitize(dist_for_table)
+    # Remove sector from the table name logic - assume district level table exists
+    boundary_table = f"rwanda_boundaries_{dist_part}_village" 
+
     try:
-        # 1. Determine Boundary Table Name
-        import re
-        def sanitize(name):
-            if not name: return ""
-            return re.sub(r'[^a-zA-Z0-9_]', '_', name.lower())[:20]
-        
-        dist_part = sanitize(district)
-        sect_part = sanitize(sector)
-        boundary_table = f"rwanda_boundaries_{dist_part}_{sect_part}"
-        
-        # 2. Build Query Parameters
+        # --- 2. Build Query Parameters and Clauses ---
         params = []
         
-        # Year Filter for Health Data
+        # Year Filter for Health Data (for the CTE)
         year_clause = ""
         if years:
             year_clause = " AND year IN %s"
             params.append(tuple(years))
+            
+        # Add Health Data Filters (for the CTE)
+        params.append(f"%{district or 'Bugesera'}%") # Health Data District Filter
+        params.append(f"%{sector or 'Kamabuye'}%") # Health Data Sector Filter
 
-        # Province Filter (Keyword Match)
-        province_clause = ""
-        if province:
-            # Map full names to DB keywords if needed, or just use ILIKE
-            # User mentioned focusing on keywords like 'east', 'west'
-            keywords = {'est': 'east', 'east': 'east', 'ouest': 'west', 'west': 'west', 'nord': 'north', 'north': 'north', 'sud': 'south', 'south': 'south'}
-            prov_key = keywords.get(province.lower(), province.lower())
-            # We apply this to the health table filter if column exists, or just rely on district/sector
-            # For this query, we primarily filter by district/sector which are more specific.
-        
-        # 3. Construct Optimized SQL Query
-        # CTE: Aggregate Health Data by Village
-        # Main: Left Join Boundaries with Health Data
+        # Add Boundary Table Filtering Parameters (New)
+        boundary_filter_clause = " AND b.district_name ILIKE %s"
+        params.append(f"%{district or 'Bugesera'}%") # Boundary District Filter
+
+        if sector:
+            # If sector is selected, filter the boundary rows further.
+            boundary_filter_clause += " AND b.sector_name ILIKE %s"
+            params.append(f"%{sector}%") # Boundary Sector Filter (only if sector is set)
+
+        # --- 3. Construct Optimized SQL Query ---
         query = f"""
             WITH village_health AS (
+                -- Health Data is filtered by the user's selected district/sector
                 SELECT 
                     TRIM(LOWER(village)) as join_key,
                     COUNT(*) as total_tests,
@@ -907,35 +964,38 @@ def get_map_data(request):
                 FROM hc_raw_bugesera_kamabuye
                 WHERE 1=1 
                 {year_clause}
-                AND district ILIKE %s
-                AND sector ILIKE %s
+                AND district ILIKE %s 
+                AND sector ILIKE %s 
                 GROUP BY 1
             )
             SELECT 
+                -- Boundary & Location Columns
                 b.district_name,
                 b.sector_name,
                 b.cell_name,
                 b.village_name,
+                
+                -- Slope Columns (For Map Styling/Popup)
                 b.mean_slope,
                 b.max_slope,
                 b.slope_class,
+                
+                -- Geometry (CRUCIAL for Leaflet)
                 b.geometry_geojson,
                 
-                -- Joined Health Stats
+                -- Joined Health Stats (CRUCIAL for Risk Level)
                 COALESCE(h.total_tests, 0) as total_tests,
                 COALESCE(h.positive_cases, 0) as total_positive
             FROM {boundary_table} b
             LEFT JOIN village_health h ON TRIM(LOWER(b.village_name)) = h.join_key
             WHERE b.geometry_geojson IS NOT NULL
-            LIMIT 3000;
+            {boundary_filter_clause} -- <-- New dynamic filter here
+            LIMIT 5000;
         """
         
-        # Add District/Sector params for the WHERE clause in CTE
-        params.append(f"%{district}%")
-        params.append(f"%{sector}%")
-
-        logger.info(f"Executing optimized map query against {boundary_table}")
+        logger.info(f"Executing map query against {boundary_table} with params: {params}")
         
+        # --- 4. Execute Query and Format GeoJSON ---
         with connection.cursor() as cursor:
             # Check table existence first
             cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s)", [boundary_table])
@@ -947,45 +1007,34 @@ def get_map_data(request):
             columns = [col[0] for col in cursor.description]
             rows = cursor.fetchall()
 
-        if not rows:
-            logger.warning(f"No rows found in {boundary_table}")
-            return JsonResponse({"type": "FeatureCollection", "features": []})
-
         features = []
-        import json
         
         for row in rows:
-            # Map row to dict
             data = dict(zip(columns, row))
             
-            # Parse Geometry if needed
+            # --- Geometry Parsing ---
             geom = data.get('geometry_geojson')
             if isinstance(geom, str):
                 try:
-                    # Try direct parsing first
-                    geom = json.loads(geom)
-                except json.JSONDecodeError:
-                    try:
-                        # Handle double-escaped format: "{""type"": ...}"
-                        # 1. Strip outer quotes if present
-                        if geom.startswith('"') and geom.endswith('"'):
-                            geom = geom[1:-1]
-                        # 2. Replace double double-quotes with single double-quote
-                        cleaned_geom = geom.replace('""', '"')
-                        geom = json.loads(cleaned_geom)
-                    except Exception as e:
-                        logger.warning(f"Failed to parse geometry for {data.get('village_name')}: {e}")
-                        geom = None
+                    # Clean/Parse the GeoJSON string
+                    cleaned_geom = geom.strip().replace('\\"', '"') # Remove leading/trailing spaces and unescape quotes
+                    if cleaned_geom.startswith('"') and cleaned_geom.endswith('"'):
+                        cleaned_geom = cleaned_geom[1:-1] # Remove outer quotes if database stored it as a quoted string
+                    
+                    geom = json.loads(cleaned_geom)
+                except Exception as e:
+                    logger.warning(f"Failed to parse geometry for {data.get('village_name')}: {e}")
+                    continue
             
-            if not geom:
+            if not geom or not isinstance(geom, dict):
                 continue
 
-            # Calculate Rate
+            # --- Health Data Calculation ---
             total = data.get('total_tests', 0)
             positive = data.get('total_positive', 0)
             rate = round((positive / total * 100), 1) if total > 0 else 0
             
-            # Risk Level
+            # Risk Level definition (matches client-side styling)
             if rate > 5: risk = 'High'
             elif rate >= 1: risk = 'Medium'
             else: risk = 'Low'
@@ -994,13 +1043,18 @@ def get_map_data(request):
                 "type": "Feature",
                 "geometry": geom,
                 "properties": {
+                    # Location
                     "district": data.get('district_name'),
                     "sector": data.get('sector_name'),
                     "cell": data.get('cell_name'),
                     "village": data.get('village_name'),
+                    
+                    # Slope Data
                     "mean_slope": data.get('mean_slope'),
                     "max_slope": data.get('max_slope'),
                     "slope_class": data.get('slope_class'),
+                    
+                    # Health Data
                     "total_tests": total,
                     "total_positive": positive,
                     "positivity_rate": rate,

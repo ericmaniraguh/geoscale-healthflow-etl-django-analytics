@@ -848,32 +848,26 @@
                 // Add Health Center Marker (Kamabuye HC) - Red Cross
                 var hcIcon = L.divIcon({
                     className: 'custom-div-icon',
-                    html: "<div style='color: red; font-size: 24px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'><i class='fas fa-plus-square'></i></div>",
+                    html: "<div style='background-color: white; border-radius: 50%; padding: 2px; box-shadow: 0 0 5px rgba(0,0,0,0.5);'><i class='fas fa-plus' style='color: #d32f2f; font-size: 16px;'></i></div>",
                     iconSize: [24, 24],
                     iconAnchor: [12, 12]
                 });
-
-                L.marker([-2.3719717, 30.1300954], {icon: hcIcon}).addTo(map)
-                    .bindPopup("<b>Kamabuye Health Center</b><br>Main Facility")
-                    .bindTooltip("Kamabuye HC", {permanent: true, direction: "top", offset: [0, -10]});
+                
+                L.marker([-2.2850, 30.1500], {icon: hcIcon}) // Approx location in Kamabuye
+                    .addTo(map)
+                    .bindPopup("<b>Kamabuye Health Center</b><br>Main Facility");
             }
 
             try {
-                // Get current filters
+                // Get current filters from the UI
                 let province = document.getElementById('provinceFilter').value;
                 let district = document.getElementById('districtFilter').value;
-                let sector = document.getElementById('sectorFilter').value; // Need sector for granular crop
+                let sector = document.getElementById('sectorFilter').value;
                 
-                // Force defaults for Study Area if no filters set
-                if (!district && !sector) {
-                    district = 'Bugesera';
-                    sector = 'Kamabuye';
-                    // We don't set province to avoid confusion if UI doesn't match
-                }
-
-                // Hardcoded Source
+                // --- REMOVED HARDCODED DEFAULTS ---
+                // The backend now handles defaults if they are empty strings.
+                
                 const source = 'postgres';
-                
                 const modeEl = document.getElementById('mapMode');
                 const mode = modeEl ? modeEl.value : 'malaria';
 
@@ -885,8 +879,7 @@
                 const selectedYears = Array.from(yearSelect.selectedOptions).map(option => option.value);
                 const yearsParam = selectedYears.length > 0 ? selectedYears.join(',') : '';
                 
-                // Fetch GeoJSON with years
-                // Note: We need to pass sector if we are cropping to it
+                // Fetch GeoJSON with current filters (including empty strings if not filtered)
                 const response = await fetch(`/analytics_dashboard/api/map-data/?province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}&sector=${encodeURIComponent(sector)}&source=${source}&years=${encodeURIComponent(yearsParam)}`);
                 const data = await response.json();
                 
@@ -897,56 +890,36 @@
                 
                 if (data.features && data.features.length > 0) {
                     // Add new layer with styling
+                    // Add new layer with styling
                     geojsonLayer = L.geoJSON(data, {
-                        style: function(feature) {
-                            return getMapStyle(feature, mode);
-                        },
-                        onEachFeature: function(feature, layer) {
-                            let title = feature.properties.village || feature.properties.sector || 'Location';
-                            
-                            let popupContent = `
-                                <div style="font-family: 'Segoe UI', sans-serif; min-width: 220px;">
-                                    <h4 style="margin: 0 0 8px; color: #1a1a2e; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; font-size: 16px;">
-                                        ${title}
-                                    </h4>
-                                    <div style="font-size: 13px; color: #555;">
+                        style: (feature) => getMapStyle(feature, mode),
+                        onEachFeature: (feature, layer) => {
+                            // Popup Content
+                            let p = feature.properties;
+                            let content = `
+                                <b>${p.village || 'Unknown Village'}</b><br>
+                                <hr style="margin: 5px 0;">
+                                <b>Risk Level:</b> <span class="badge badge-${p.risk_level === 'High' ? 'danger' : p.risk_level === 'Medium' ? 'warning' : 'success'}">${p.risk_level}</span><br>
+                                <b>Positivity Rate:</b> ${p.positivity_rate}%<br>
+                                <b>Cases:</b> ${p.total_positive}/${p.total_tests}<br>
+                                <hr style="margin: 5px 0;">
+                                <b>Slope:</b> ${p.max_slope}°<br>
+                                <b>Slope Class:</b> ${p.slope_class}<br>
+                                <small>Sector: ${p.sector}<br>District: ${p.district}</small>
                             `;
-
-                            if (mode === 'malaria') {
-                                if (feature.properties.has_data) {
-                                    const riskColor = feature.properties.risk_level === 'High' ? '#dc3545' : 
-                                                      feature.properties.risk_level === 'Medium' ? '#ffc107' : '#28a745';
-                                    popupContent += `
-                                        <div style="background: #f8f9fa; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                                <span>Positivity Rate:</span>
-                                                <span style="font-weight:800; color:${riskColor}">${feature.properties.positivity_rate}%</span>
-                                            </div>
-                                            <div style="display:flex; justify-content:space-between;">
-                                                <span>Risk Level:</span>
-                                                <span style="font-weight:700; color:${riskColor}">${feature.properties.risk_level}</span>
-                                            </div>
-                                        </div>`;
-                                } else {
-                                    popupContent += `<div style="padding:5px; color:#999; font-style:italic; margin-bottom:8px;">No Malaria Data</div>`;
+                            layer.bindPopup(content);
+                            
+                            // Highlight on hover
+                            layer.on({
+                                mouseover: (e) => {
+                                    var l = e.target;
+                                    l.setStyle({ weight: 3, opacity: 1, color: 'white' });
+                                    l.bringToFront();
+                                },
+                                mouseout: (e) => {
+                                    geojsonLayer.resetStyle(e.target);
                                 }
-                            } else {
-                                // Slope Mode
-                                popupContent += `
-                                    <div style="background: #f8f9fa; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                                        <strong>Max Slope:</strong> ${feature.properties.max_slope ? parseFloat(feature.properties.max_slope).toFixed(1) + '°' : 'N/A'}<br>
-                                        <strong>Mean Slope:</strong> ${feature.properties.mean_slope ? parseFloat(feature.properties.mean_slope).toFixed(1) + '°' : 'N/A'}<br>
-                                        <strong>Class:</strong> ${feature.properties.slope_class || 'N/A'}
-                                    </div>`;
-                            }
-
-                            popupContent += `
-                                <strong>District:</strong> ${feature.properties.district || 'N/A'}<br>
-                                <strong>Sector:</strong> ${feature.properties.sector || 'N/A'}<br>
-                            `;
-                            
-                            popupContent += `</div></div>`;
-                            layer.bindPopup(popupContent);
+                            });
                         }
                     }).addTo(map);
                     
@@ -1401,58 +1374,90 @@
                     });
                 }
 
-                // Precipitation Data
+                // --- Precipitation Data ---
                 const precipResponse = await fetch(`/analytics_dashboard/api/precipitation/${queryString}`);
-                const precipData = await precipResponse.json();
-                
-                if (charts.precipitation) {
-                    const yearColors = ['#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2'];
-                    const bgColors = ['rgba(40, 167, 69, 0.1)', 'rgba(255, 193, 7, 0.1)', 'rgba(220, 53, 69, 0.1)', 'rgba(23, 162, 184, 0.1)', 'rgba(102, 16, 242, 0.1)'];
+                const precipData = precipResponse.ok ? await precipResponse.json() : { labels: [], available_years: [] }; // Safe fallback
                     
-                    // Identify years present in data
+                const precipCtx = document.getElementById('precipitationChart').getContext('2d');
+                if (precipCtx) {
+                    const yearColors = ['#28a745', '#ffc107', '#dc3545', '#17a2b8', '#6610f2'];
                     const years = Object.keys(precipData).filter(key => !isNaN(parseInt(key)) && key !== 'labels');
                     const titleYears = getYearsText(years);
                     
                     let datasets = [];
                     years.forEach((year, index) => {
-                        datasets.push({
-                            label: year.toString(),
-                            data: precipData[year],
-                            borderColor: yearColors[index % yearColors.length],
-                            backgroundColor: bgColors[index % bgColors.length],
-                            tension: 0.4,
-                            fill: true
-                        });
+                        if (precipData[year]) {
+                            datasets.push({
+                                label: year.toString(),
+                                data: precipData[year],
+                                borderColor: yearColors[index % yearColors.length],
+                                // For line chart, use background color for fill area
+                                backgroundColor: yearColors[index % yearColors.length] + '40', // Semi-transparent fill
+                                tension: 0.4,
+                                fill: true // Important for area chart
+                            });
+                        }
                     });
 
-                    charts.precipitation.data = { labels: precipData.labels, datasets: datasets };
-                    charts.precipitation.options.plugins.title = { display: true, text: `Monthly Average Precipitation ${titleYears}` }; 
-                    charts.precipitation.update();
+                    // Destroy and Recreate Chart
+                    if (charts.precipitation) charts.precipitation.destroy();
+                    charts.precipitation = new Chart(precipCtx, {
+                        type: 'line',
+                        data: { labels: precipData.labels, datasets: datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                title: { display: true, text: `Monthly Average Precipitation ${titleYears}` }
+                            },
+                            scales: {
+                                y: { beginAtZero: true, title: { display: true, text: 'Precipitation (mm)' } }
+                            }
+                        }
+                    });
                 }
 
-                // Temperature Data
+                // --- Temperature Data ---
                 const tempResponse = await fetch(`/analytics_dashboard/api/temperature/${queryString}`);
-                const tempData = await tempResponse.json();
-                
-                if (charts.temperature) {
+                const tempData = tempResponse.ok ? await tempResponse.json() : { labels: [], available_years: [] }; // Safe fallback
+
+                const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+                if (tempCtx) {
                     const yearColors = ['#ff7f50', '#ff4500', '#8b0000', '#d2691e', '#a0522d'];
                     const years = Object.keys(tempData).filter(key => !isNaN(parseInt(key)) && key !== 'labels');
                     const titleYears = getYearsText(years);
 
                     let datasets = [];
                     years.forEach((year, index) => {
-                        datasets.push({
-                            label: year.toString(),
-                            data: tempData[year],
-                            borderColor: yearColors[index % yearColors.length],
-                            tension: 0.4,
-                            fill: false
-                        });
+                        if (tempData[year]) {
+                            datasets.push({
+                                label: year.toString(),
+                                data: tempData[year],
+                                borderColor: yearColors[index % yearColors.length],
+                                tension: 0.4,
+                                fill: false // No fill for temperature
+                            });
+                        }
                     });
 
-                    charts.temperature.data = { labels: tempData.labels, datasets: datasets };
-                    charts.temperature.options.plugins.title = { display: true, text: `Monthly Average Temperature ${titleYears}` };
-                    charts.temperature.update();
+                    // Destroy and Recreate Chart
+                    if (charts.temperature) charts.temperature.destroy();
+                    charts.temperature = new Chart(tempCtx, {
+                        type: 'line',
+                        data: { labels: tempData.labels, datasets: datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                title: { display: true, text: `Monthly Average Temperature ${titleYears}` }
+                            },
+                            scales: {
+                                y: { beginAtZero: true, title: { display: true, text: 'Temperature (°C)' } }
+                            }
+                        }
+                    });
                 }
 
                 // Monthly Trend Data

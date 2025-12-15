@@ -976,14 +976,12 @@
                 <form id="weather-prec-temp-etl-form" method="post">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="station_temp">Temperature Station</label>
-                            <input type="text" id="station_temp" name="station_temp" placeholder="e.g., Nyamata">
-                            <small class="text-muted">Optional - leave blank for all stations</small>
+                            <label for="station_temp">Temperature Station <span class="required">*</span></label>
+                            <input type="text" id="station_temp" name="station_temp" placeholder="e.g., Nyamata" required>
                         </div>
                         <div class="form-group">
-                            <label for="station_prec">Precipitation Station</label>
-                            <input type="text" id="station_prec" name="station_prec" placeholder="e.g., Juru">
-                            <small class="text-muted">Optional - leave blank for all stations</small>
+                            <label for="station_prec">Precipitation Station <span class="required">*</span></label>
+                            <input type="text" id="station_prec" name="station_prec" placeholder="e.g., Juru" required>
                         </div>
                     </div>
 
@@ -991,6 +989,17 @@
                         <label for="weather_years">Years (comma separated) <span class="required">*</span></label>
                         <input type="text" id="weather_years" name="years" placeholder="2021,2022,2023" required>
                         <small class="text-muted">Enter years separated by commas</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="weather_district">District <span class="required">*</span></label>
+                            <input type="text" id="weather_district" name="district" placeholder="e.g., Bugesera" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="weather_sector">Sector <span class="required">*</span></label>
+                            <input type="text" id="weather_sector" name="sector" placeholder="e.g., Kamabuye" required>
+                        </div>
                     </div>
                     
                     <button type="submit" class="submit-btn" id="weather-submit-btn">
