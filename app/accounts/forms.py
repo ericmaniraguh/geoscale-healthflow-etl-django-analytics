@@ -29,6 +29,13 @@ class CustomUserCreationForm(UserCreationForm):
             "class": "input"
         })
     )
+    terms_accepted = forms.BooleanField(
+        required=True,
+        error_messages={'required': 'You must agree to the terms and conditions to sign up.'},
+        widget=forms.CheckboxInput(attrs={
+            "class": "checkbox",
+        })
+    )
 
     class Meta:
         model = CustomUser

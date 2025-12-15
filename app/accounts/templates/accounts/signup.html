@@ -3,25 +3,196 @@
 {% block title %}Sign Up{% endblock %}
 
 {% block content %}
-<!-- SUBTLE LOADING OVERLAY - White background with logo -->
+<style>
+  /* Inlined styles to ensure layout applies immediately */
+  .signup-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px; /* Tighter gap */
+    margin-bottom: 10px;
+    align-items: start;
+  }
+  
+  .signup-columns .form-field {
+    margin-bottom: 0.3rem; /* Very tight spacing */
+  }
+
+  /* Compact Inputs */
+  .signup-columns input, 
+  .signup-columns select {
+    padding: 8px 10px !important;
+    font-size: 0.85rem !important;
+    height: auto !important;
+  }
+  
+  .signup-columns label {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.1rem !important;
+  }
+
+  @media (max-width: 600px) {
+    .signup-columns {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+  }
+
+  .form-container {
+    padding-top: 40px !important; /* Moved up */
+  }
+
+  .form-container.wide {
+    max-width: 900px !important;
+  }
+  
+  .form-container h2 {
+    font-size: 1.4rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Force scrollbar hiding - content fits viewport */
+  .auth-right {
+    overflow-y: hidden !important; /* Completely disable scrolling */
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding: 0.5rem !important;
+  }
+  
+  .auth-right::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important; 
+    background: transparent !important;
+  }
+
+  /* Logo in top-right corner */
+  .auth-logo {
+    position: absolute !important;
+    top: 40px !important; /* "A bit down" */
+    right: 40px !important;
+    z-index: 10;
+    margin: 0 !important;
+    text-align: right !important;
+    width: auto !important;
+  }
+
+  .auth-logo img {
+    height: 50px !important;
+    width: auto !important;
+  }
+
+  /* Login Link Area */
+  .alt-action {
+    text-align: center;
+    border-top: 1px solid #e8eaed;
+    padding-top: 20px;
+    margin-top: 24px;
+  }
+  
+  .alt-action p {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0;
+  }
+
+  .alt-action a {
+    color: #1d4ed8;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  
+  .alt-action a:hover {
+    text-decoration: underline;
+  }
+
+  /* Agreement Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal-content {
+    background-color: #fff;
+    padding: 24px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 12px;
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #202124;
+  }
+  
+  .close-modal {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+  }
+  
+  .close-modal:hover {
+    color: #000;
+  }
+  
+  .modal-body {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #444;
+  }
+  
+  .agreement-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 0.8rem;
+    color: #444;
+  }
+  
+  .agreement-checkbox input[type="checkbox"] {
+    margin-top: 2px;
+    width: auto !important;
+  }
+</style>
+
 <div id="page-loader" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; display: flex; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.3s ease-out;">
   <div style="text-align: center;">
     
-    <!-- Upanzi Logo (Static) -->
     <div style="margin-bottom: 24px;">
       <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" 
            alt="Upanzi Network" 
            style="height: 60px; width: auto; opacity: 0.9;"
            onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-      <!-- Text fallback -->
       <div style="display: none; font-size: 24px; font-weight: 600; color: #1967d2;">
         Upanzi Network
       </div>
     </div>
     
-    <!-- Animated Loading Spinner -->
     <div style="position: relative; width: 48px; height: 48px; margin: 0 auto 16px;">
-      <!-- Outer circle (rotating) -->
       <svg width="48" height="48" viewBox="0 0 48 48" style="animation: spin 1s linear infinite;">
         <circle cx="24" cy="24" r="20" 
                 stroke="#4285f4" 
@@ -32,496 +203,236 @@
       </svg>
     </div>
     
-    <!-- Loading Text -->
     <p style="color: #5f6368; font-size: 14px; margin: 0; font-weight: 500;">
       <span id="loading-dots">Loading</span>
     </p>
   </div>
 </div>
 
-<!-- Horizontal split layout - NO SCROLLING -->
-<div id="main-content" style="display: grid; grid-template-columns: 1fr 1fr; height: 100vh; width: 100vw; overflow: hidden; position: fixed; top: 0; left: 0; opacity: 0;">
+<div class="auth-wrapper" id="main-content" style="opacity: 0;">
   
-  <!-- LEFT PANEL: Illustration - FIXED (No 404 error) -->
-  <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); display: flex; align-items: center; justify-content: center; padding: 40px; flex-direction: column;">
-    
-    <!-- SVG Illustration (always works) -->
-    <div style="text-align: center; max-width: 80%;">
-      <svg width="400" height="400" viewBox="0 0 400 400" style="max-width: 100%; height: auto;">
-        <!-- Globe -->
-        <circle cx="200" cy="200" r="150" fill="#4285f4" opacity="0.1"/>
-        <circle cx="200" cy="200" r="120" fill="none" stroke="#4285f4" stroke-width="2" stroke-dasharray="10,5"/>
-        
-        <!-- Mosquito Icon -->
-        <g transform="translate(160, 160)">
-          <ellipse cx="40" cy="40" rx="20" ry="30" fill="#1a73e8"/>
-          <line x1="30" y1="30" x2="10" y2="20" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
-          <line x1="30" y1="50" x2="10" y2="60" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
-          <line x1="50" y1="30" x2="70" y2="20" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
-          <line x1="50" y1="50" x2="70" y2="60" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
-        </g>
-        
-        <!-- Map Pin -->
-        <g transform="translate(220, 180)">
-          <path d="M20,0 C9,0 0,9 0,20 C0,35 20,50 20,50 C20,50 40,35 40,20 C40,9 31,0 20,0 Z" fill="#ea4335"/>
-          <circle cx="20" cy="20" r="8" fill="white"/>
-        </g>
-        
-        <!-- Health Cross -->
-        <g transform="translate(140, 240)">
-          <rect x="12" y="0" width="8" height="32" fill="#34a853" rx="2"/>
-          <rect x="0" y="12" width="32" height="8" fill="#34a853" rx="2"/>
-        </g>
-        
-        <!-- Data Charts -->
-        <g transform="translate(250, 250)">
-          <rect x="0" y="20" width="10" height="20" fill="#fbbc04" rx="2"/>
-          <rect x="15" y="10" width="10" height="30" fill="#fbbc04" rx="2"/>
-          <rect x="30" y="5" width="10" height="35" fill="#fbbc04" rx="2"/>
-        </g>
-      </svg>
-      
-      <h2 style="color: #1967d2; font-size: 32px; font-weight: 400; margin: 20px 0 10px 0;">
-        GeoScale Malaria
-      </h2>
-      <p style="color: #5f6368; font-size: 16px; margin: 0; max-width: 400px; line-height: 1.5;">
-        Geographic Surveillance & Data Management Platform
-      </p>
+  <div class="auth-left">
+    <div class="auth-overlay" style="background: linear-gradient(135deg, rgba(236, 253, 245, 0.9) 0%, rgba(209, 250, 229, 0.9) 100%);"></div>
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; text-align: center; width: 100%; padding: 20px;">
+        <img src="{% static 'accounts/Images/geoscale-malaria-illustration.png' %}" 
+              alt="GeoScale Malaria" 
+              style="max-width: 80%; height: auto; max-height: 60vh; filter: drop-shadow(0 10px 20px rgba(21, 128, 61, 0.2));"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'font-size: 100px; color: rgba(21, 128, 61, 0.3);\'>🌍</div>';">
     </div>
   </div>
   
-  <!-- RIGHT PANEL: Signup Form -->
-  <div style="background: white; padding: 30px 40px; position: relative; overflow-y: auto;">
+  <div class="auth-right">
     
-    <!-- Logo (top-right corner)  -->
-    <div style="position: absolute; top: 20px; right: 30px;">
-      <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" 
-           alt="Upanzi Network" 
-           style="height: 45px; width: auto;"
-           onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-      <!-- Text fallback -->
-      <div style="display: none; font-size: 18px; font-weight: 600; color: #1967d2;">
-        Upanzi Network
-      </div>
+    <div class="auth-logo">
+      <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" alt="Upanzi Network">
     </div>
     
-    <!-- Form Container -->
-    <div style="max-width: 600px; margin: 0 auto; padding-top: 60px;">
+    <div class="form-container wide">
       
-      <!-- Heading -->
-      <h2 style="color: #202124; font-size: 26px; font-weight: 400; margin: 0 0 8px 0;">
-        Register your account
-      </h2>
-      <p style="color: #5f6368; font-size: 14px; margin: 0 0 24px 0;">
-        Fill the details below to register your account.
-      </p>
+      <h2>Register your account</h2>
+      <p>Fill the details below to register your account.</p>
 
-      <!-- Messages -->
       {% if messages %}
-        <div style="margin-bottom: 20px;">
+        <div class="messages">
           {% for message in messages %}
-            <div style="padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 14px;
-                 {% if message.tags == 'success' %}background: #e6f4ea; color: #137333; border: 1px solid #c2e7d0;
-                 {% elif message.tags == 'error' %}background: #fce8e6; color: #c5221f; border: 1px solid #f6aea9;
-                 {% else %}background: #e8f0fe; color: #1967d2; border: 1px solid #d2e3fc;{% endif %}">
-              {{ message }}
-            </div>
+            <div class="message {{ message.tags }}">{{ message }}</div>
           {% endfor %}
         </div>
       {% endif %}
 
-      <!-- Signup Form -->
       <form method="post" novalidate id="signup-form">
         {% csrf_token %}
         
         {% if form.non_field_errors %}
-          <div style="background: #fce8e6; color: #c5221f; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; border: 1px solid #f6aea9;">
-            {{ form.non_field_errors }}
-          </div>
+          <div class="error-messages">{{ form.non_field_errors }}</div>
         {% endif %}
 
-        <!-- Two Column Grid for Compact Layout -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-          <!-- First Name -->
-          <div>
-            <label for="id_first_name" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              First name *
-            </label>
-            <input 
-              type="text" 
-              name="first_name" 
-              id="id_first_name" 
-              placeholder="First name"
-              value="{{ form.first_name.value|default:'' }}" 
-              required
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-              onfocus="this.style.borderColor='#4285f4';"
-              onblur="this.style.borderColor='#dadce0';"
-            >
-            {% if form.first_name.errors %}
-              <div style="color: #c5221f; font-size: 12px; margin-top: 4px;">{{ form.first_name.errors }}</div>
-            {% endif %}
+        <div class="signup-columns">
+          
+          <!-- Row 1 -->
+          <div class="form-field">
+            <label for="id_first_name">First name *</label>
+            <input type="text" name="first_name" id="id_first_name" placeholder="First name" value="{{ form.first_name.value|default:'' }}" required>
+            {% if form.first_name.errors %} <span class="field-error">{{ form.first_name.errors }}</span>{% endif %}
           </div>
 
-          <!-- Last Name -->
-          <div>
-            <label for="id_last_name" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Last name *
-            </label>
-            <input 
-              type="text" 
-              name="last_name" 
-              id="id_last_name" 
-              placeholder="Last name"
-              value="{{ form.last_name.value|default:'' }}" 
-              required
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-              onfocus="this.style.borderColor='#4285f4';"
-              onblur="this.style.borderColor='#dadce0';"
-            >
-            {% if form.last_name.errors %}
-              <div style="color: #c5221f; font-size: 12px; margin-top: 4px;">{{ form.last_name.errors }}</div>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Email & Phone in Two Columns -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-          <!-- Email -->
-          <div>
-            <label for="id_email" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Email address *
-            </label>
-            <input 
-              type="email" 
-              name="email" 
-              id="id_email" 
-              placeholder="Email"
-              value="{{ form.email.value|default:'' }}" 
-              required
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-              onfocus="this.style.borderColor='#4285f4';"
-              onblur="this.style.borderColor='#dadce0';"
-            >
-            {% if form.email.errors %}
-              <div style="color: #c5221f; font-size: 12px; margin-top: 4px;">{{ form.email.errors }}</div>
-            {% endif %}
+          <div class="form-field">
+            <label for="id_last_name">Last name *</label>
+            <input type="text" name="last_name" id="id_last_name" placeholder="Last name" value="{{ form.last_name.value|default:'' }}" required>
+            {% if form.last_name.errors %} <span class="field-error">{{ form.last_name.errors }}</span>{% endif %}
           </div>
 
-          <!-- Phone -->
-          <div>
-            <label for="id_phone_number" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Phone number *
-            </label>
-            <input 
-              type="tel" 
-              name="phone_number" 
-              id="id_phone_number" 
-              placeholder="Phone number"
-              value="{{ form.phone_number.value|default:'' }}" 
-              required
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-              onfocus="this.style.borderColor='#4285f4';"
-              onblur="this.style.borderColor='#dadce0';"
-            >
-            {% if form.phone_number.errors %}
-              <div style="color: #c5221f; font-size: 12px; margin-top: 4px;">{{ form.phone_number.errors }}</div>
-            {% endif %}
+          <!-- Row 2 -->
+          <div class="form-field">
+            <label for="id_email">Email address *</label>
+            <input type="email" name="email" id="id_email" placeholder="Email" value="{{ form.email.value|default:'' }}" required>
+            {% if form.email.errors %} <span class="field-error">{{ form.email.errors }}</span>{% endif %}
           </div>
-        </div>
 
-        <!-- Username (Full Width) -->
-        <div style="margin-bottom: 16px;">
-          <label for="id_username" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-            Username *
-          </label>
-          <input 
-            type="text" 
-            name="username" 
-            id="id_username" 
-            placeholder="Username"
-            value="{{ form.username.value|default:'' }}" 
-            required
-            style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-            onfocus="this.style.borderColor='#4285f4';"
-            onblur="this.style.borderColor='#dadce0';"
-          >
-          {% if form.username.errors %}
-            <div style="color: #c5221f; font-size: 12px; margin-top: 4px;">{{ form.username.errors }}</div>
-          {% endif %}
-        </div>
+          <div class="form-field">
+            <label for="id_phone_number">Phone number *</label>
+            <input type="tel" name="phone_number" id="id_phone_number" placeholder="Phone number" value="{{ form.phone_number.value|default:'' }}" required>
+            {% if form.phone_number.errors %} <span class="field-error">{{ form.phone_number.errors }}</span>{% endif %}
+          </div>
 
-        <!-- Location Fields - 3 Columns with Loading -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
-          <!-- Province -->
-          <div style="position: relative;">
-            <label for="id_province" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Province
-            </label>
-            <select 
-              id="id_province" 
-              name="province" 
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
-              hx-get="/accounts/ajax/districts/"
-              hx-target="#district-container"
-              hx-trigger="change"
-              hx-indicator="#loading-districts"
-              hx-include="[name='csrfmiddlewaretoken']">
+          <!-- Row 3 -->
+          <div class="form-field">
+            <label for="id_username">Username *</label>
+            <input type="text" name="username" id="id_username" placeholder="Username" value="{{ form.username.value|default:'' }}" required>
+            {% if form.username.errors %} <span class="field-error">{{ form.username.errors }}</span>{% endif %}
+          </div>
+
+          <div class="form-field">
+            <label for="id_health_centre_name">Health centre *</label>
+            <input type="text" name="health_centre_name" id="id_health_centre_name" placeholder="Health centre name" value="{{ form.health_centre_name.value|default:'' }}" required>
+          </div>
+
+          <!-- Row 4 -->
+          <div class="form-field">
+            <label for="id_position">Position</label>
+            {{ form.position }}
+          </div>
+
+          <!-- HTMX Cascading Dropdowns -->
+          <div class="form-field" style="position: relative;">
+            <label for="id_province">Province</label>
+            <select id="id_province" name="province" 
+                    hx-get="/accounts/ajax/districts/" hx-target="#district-container" hx-trigger="change" hx-indicator="#loading-districts" hx-include="[name='csrfmiddlewaretoken']">
               <option value="">Select province</option>
               {% for province in form.fields.province.queryset %}
                 <option value="{{ province.id }}">{{ province.name }}</option>
               {% endfor %}
             </select>
-            <!-- Loading spinner for districts -->
             <div id="loading-districts" class="loading-indicator" style="display: none;">
-              <div class="spinner"></div>
-              <span>Loading districts...</span>
+              <div class="spinner"></div><span>Loading...</span>
             </div>
           </div>
-
-          <!-- District -->
-          <div id="district-container" style="position: relative;">
-            <label for="id_district" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              District
-            </label>
-            <select 
-              id="id_district" 
-              name="district" 
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
-              hx-get="/accounts/ajax/sectors/"
-              hx-target="#sector-container"
-              hx-trigger="change"
-              hx-indicator="#loading-sectors"
-              hx-include="[name='csrfmiddlewaretoken']">
+          
+          <!-- Row 5 -->
+          <div class="form-field" id="district-container" style="position: relative;">
+            <label for="id_district">District</label>
+            <select id="id_district" name="district"
+                    hx-get="/accounts/ajax/sectors/" hx-target="#sector-container" hx-trigger="change" hx-indicator="#loading-sectors" hx-include="[name='csrfmiddlewaretoken']">
               <option value="">Select district</option>
             </select>
-            <!-- Loading spinner for sectors -->
             <div id="loading-sectors" class="loading-indicator" style="display: none;">
-              <div class="spinner"></div>
-              <span>Loading sectors...</span>
+              <div class="spinner"></div><span>Loading...</span>
             </div>
           </div>
-
-          <!-- Sector -->
-          <div id="sector-container" style="position: relative;">
-            <label for="id_sector" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Sector
-            </label>
-            <select 
-              id="id_sector" 
-              name="sector" 
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+          
+          <div class="form-field" id="sector-container">
+            <label for="id_sector">Sector</label>
+            <select id="id_sector" name="sector">
               <option value="">Select sector</option>
             </select>
           </div>
+
+          <!-- Row 6 -->
+          <div class="form-field">
+          <label for="id_password1">Password *</label>
+          <input type="password" name="password1" id="id_password1" placeholder="Password" required>
+          {% if form.password1.errors %} <span class="field-error">{{ form.password1.errors }}</span>{% endif %}
+          </div>
+
+          <div class="form-field">
+          <label for="id_password2">Confirm password *</label>
+          <input type="password" name="password2" id="id_password2" placeholder="Confirm password" required>
+          {% if form.password2.errors %} <span class="field-error">{{ form.password2.errors }}</span>{% endif %}
+          </div>
+          
         </div>
 
-        <!-- Health Center & Position -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-          <!-- Health Centre -->
-          <div>
-            <label for="id_health_centre_name" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Health centre *
+        <div class="agreement-checkbox">
+            {{ form.terms_accepted }}
+            <label for="id_terms_accepted">
+              I have read and agree to the <a href="#" id="terms-link" style="color: #1d4ed8; text-decoration: none;">Terms & Conditions</a> and <a href="#" id="privacy-link" style="color: #1d4ed8; text-decoration: none;">Privacy Policy</a>.
             </label>
-            <input 
-              type="text" 
-              name="health_centre_name" 
-              id="id_health_centre_name" 
-              placeholder="Health centre name"
-              value="{{ form.health_centre_name.value|default:'' }}" 
-              required
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-              onfocus="this.style.borderColor='#4285f4';"
-              onblur="this.style.borderColor='#dadce0';"
-            >
-          </div>
-
-          <!-- Position -->
-          <div>
-            <label for="id_position" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Position
-            </label>
-            {{ form.position }}
-          </div>
         </div>
+        {% if form.terms_accepted.errors %} <div class="field-error" style="margin-bottom: 10px; display: block;">{{ form.terms_accepted.errors }}</div>{% endif %}
 
-        <!-- Passwords in Two Columns -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-          <!-- Password -->
-          <div>
-            <label for="id_password1" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Password *
-            </label>
-            <input 
-              type="password" 
-              name="password1" 
-              id="id_password1" 
-              placeholder="Password"
-              required
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-              onfocus="this.style.borderColor='#4285f4';"
-              onblur="this.style.borderColor='#dadce0';"
-            >
-            {% if form.password1.errors %}
-              <div style="color: #c5221f; font-size: 12px; margin-top: 4px;">{{ form.password1.errors }}</div>
-            {% endif %}
-          </div>
-
-          <!-- Confirm Password -->
-          <div>
-            <label for="id_password2" style="display: block; color: #5f6368; font-size: 13px; font-weight: 500; margin-bottom: 6px;">
-              Confirm password *
-            </label>
-            <input 
-              type="password" 
-              name="password2" 
-              id="id_password2" 
-              placeholder="Confirm password"
-              required
-              style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; transition: all 0.2s; box-sizing: border-box;"
-              onfocus="this.style.borderColor='#4285f4';"
-              onblur="this.style.borderColor='#dadce0';"
-            >
-            {% if form.password2.errors %}
-              <div style="color: #c5221f; font-size: 12px; margin-top: 4px;">{{ form.password2.errors }}</div>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Hidden Country Field -->
         <input type="hidden" name="country" value="Rwanda">
 
-        <!-- Terms -->
-        <p style="color: #5f6368; font-size: 12px; margin: 0 0 16px 0; line-height: 1.5;">
-          By signing up, you agree to our <a href="#" style="color: #4285f4; text-decoration: none;">Terms & Conditions</a> and <a href="#" style="color: #4285f4; text-decoration: none;">Privacy Policy</a>.
-        </p>
-
-        <!-- Submit Button with Loading -->
-        <button 
-          type="submit" 
-          id="submit-btn"
-          style="width: 100%; padding: 12px 24px; background: #4285f4; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative;"
-          onmouseover="if(!this.disabled) this.style.background='#1a73e8';"
-          onmouseout="if(!this.disabled) this.style.background='#4285f4';"
-        >
+        <button type="submit" id="submit-btn" class="btn-primary" style="position: relative;">
           <span id="btn-text">Create Account</span>
           <span id="btn-spinner" style="display: none;">
             <svg style="animation: spin 1s linear infinite; width: 16px; height: 16px; display: inline-block; vertical-align: middle;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
             </svg>
-            Creating account...
+            Creating...
           </span>
         </button>
-      </form>
+        <div class="alt-action">
+          <p>Already have an account? <a href="{% url 'accounts:login' %}">Login</a></p>
+        </div>
 
-      <!-- Login Link -->
-      <div style="text-align: center; padding-top: 16px; margin-top: 16px; border-top: 1px solid #e8eaed;">
-        <p style="color: #5f6368; font-size: 13px; margin: 0;">
-          Already have an account? 
-          <a href="{% url 'accounts:login' %}" style="color: #4285f4; text-decoration: none; font-weight: 500;">
-            Login
-          </a>
-        </p>
-      </div>
+      </form>
       
     </div>
   </div>
 </div>
 
-<!-- Styles -->
-<style>
-/* Remove scrolling from body */
-body, html {
-  overflow: hidden !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 100vh !important;
-  width: 100vw !important;
-}
+<!-- Terms Modal -->
+<div id="terms-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Terms & Conditions & Privacy Policy</h3>
+      <span class="close-modal">&times;</span>
+    </div>
+    <div class="modal-body">
+      <strong>Terms & Conditions</strong><br>
+      <ol style="padding-left: 20px; margin-bottom: 20px;">
+        <li>Use of this service is subject to the data protection laws of Rwanda.</li>
+        <li>You agree to provide accurate and up-to-date information.</li>
+        <li>Your data will be used solely for the purpose of the GeoScale Malaria project.</li>
+        <li>Unauthorized access or misuse of the platform is strictly prohibited.</li>
+        <li>We reserve the right to suspend accounts that violate these terms.</li>
+      </ol>
 
-/* Focus states */
-input:focus, select:focus {
-  outline: none;
-  border-color: #4285f4 !important;
-  box-shadow: 0 1px 6px rgba(66,133,244,0.3) !important;
-}
+      <strong>Privacy Policy</strong><br>
+      <p>We respect your privacy. Your personal information will be securely stored and not shared with third parties without your consent, except as required by law. We collect data primarily to improve healthcare delivery and malaria monitoring.</p>
+      
+      <div style="text-align: right; margin-top: 20px;">
+        <button type="button" class="btn-primary" id="modal-agree-btn" style="width: auto; padding: 8px 24px;">I Understand</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-/* Loading Indicator Styles */
-.loading-indicator {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #4285f4;
-  font-size: 12px;
-  font-weight: 500;
-  z-index: 10;
-}
-
-.loading-indicator .spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid #e8f0fe;
-  border-top-color: #4285f4;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-/* Show loading indicator during HTMX request */
-.htmx-request .loading-indicator {
-  display: flex !important;
-}
-
-/* Spinning animation */
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Button loading state */
-button:disabled {
-  background: #9aa0a6 !important;
-  cursor: not-allowed !important;
-}
-
-/* Smooth transitions for HTMX */
-.htmx-swapping {
-  opacity: 0;
-  transition: opacity 200ms ease-out;
-}
-
-.htmx-settling {
-  opacity: 1;
-  transition: opacity 200ms ease-in;
-}
-
-/* Select styling */
-select {
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 4L6 8L10 4' stroke='%235f6368' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px !important;
-}
-
-/* Disable select during loading */
-select:disabled {
-  background-color: #f8f9fa;
-  color: #9aa0a6;
-  cursor: not-allowed;
-}
-</style>
-
-<!-- HTMX Script - FIXED with multiple CDN fallbacks -->
 <script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.12" 
         onerror="this.onerror=null; this.src='https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js'">
 </script>
 
-<!-- JavaScript for Page Loading and Form Submission - FIXED -->
 <script>
+// Modal Logic
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('terms-modal');
+  const termsLink = document.getElementById('terms-link');
+  const privacyLink = document.getElementById('privacy-link');
+  const closeBtn = document.querySelector('.close-modal');
+  const agreeBtn = document.getElementById('modal-agree-btn');
+  
+  function openModal(e) {
+    if(e) e.preventDefault();
+    modal.style.display = 'flex';
+  }
+  
+  function closeModal() {
+    modal.style.display = 'none';
+  }
+  
+  if (termsLink) termsLink.addEventListener('click', openModal);
+  if (privacyLink) privacyLink.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (agreeBtn) agreeBtn.addEventListener('click', closeModal);
+  
+  // Close on outside click
+  window.addEventListener('click', function(e) {
+    if (e.target == modal) {
+      closeModal();
+    }
+  });
+});
+
 // PAGE LOAD ANIMATION - White background with spinner
 window.addEventListener('load', function() {
   // Animate loading dots
@@ -566,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Show loading state
       submitBtn.disabled = true;
       btnText.style.display = 'none';
-      btnSpinner.style.display = 'inline';
+      btnSpinner.style.display = 'inline-flex';
       
       // Re-enable after 10 seconds as fallback (in case of error)
       setTimeout(function() {

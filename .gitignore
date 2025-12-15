@@ -40,6 +40,7 @@ media/                # user-uploaded files
 # ===================================
 # actual secrets & # ignore variations like `.env.dev`, `.env.local`, etc.
 *.env                 
+.env_airflow
 .env.*  
 
 client_secret_417061298958-4tmuvjiseuv7su3rm8ifl9ov1s9dr0kj.apps.googleusercontent.com.json

@@ -12,7 +12,7 @@ def admin_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('login')
+            return redirect('accounts:login')
         
         if not (request.user.is_staff or request.user.is_superuser):
             messages.error(request, "Access denied. Administrator privileges required.")
@@ -29,7 +29,7 @@ def admin_required_class(view_class):
     
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('login')
+            return redirect('accounts:login')
         
         if not (request.user.is_staff or request.user.is_superuser):
             messages.error(request, "Access denied. Administrator privileges required.")

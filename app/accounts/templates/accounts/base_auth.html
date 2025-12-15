@@ -3,6 +3,7 @@
 <head>
   {% load static %}
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{% endblock %}</title>
   <link rel="stylesheet" href="{% static '/accounts/css/auth.css' %}">
   <script src="{% static 'js/auth.js' %}"></script>
@@ -12,18 +13,6 @@
 
 </head>
 <body>
-  <div class="auth-wrapper">
-    <div class="auth-left">
-      <div class="auth-overlay"></div>
-      <div class="auth-text">
-
-      </div>
-    </div>
-
-    <!-- RIGHT SIDE: where login/signup content goes -->
-    <div class="auth-right">
-      {% block content %}{% endblock %}
-    </div>
-  </div>
+  {% block content %}{% endblock %}
 </body>
 </html>

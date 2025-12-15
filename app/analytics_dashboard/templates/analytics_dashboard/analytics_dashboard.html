@@ -18,7 +18,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: linear-gradient(135deg, #02690a 0%, #014d06 100%);
             color: #333;
             min-height: 100vh;
         }
@@ -217,13 +217,40 @@
         /* Dashboard Grid */
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
             gap: 20px;
             margin-bottom: 25px;
         }
 
-        .dashboard-grid.full {
-            grid-template-columns: 1fr;
+        /* Top Row: 3 Columns for Gender, Precip, Temp */
+        .grid-top-row {
+             grid-template-columns: repeat(3, 1fr);
+        }
+
+        /* Bottom Row: 2 Wide Columns for Trend and Map */
+        .grid-bottom-row {
+             grid-template-columns: 1fr 1fr;
+        }
+
+        /* Responsive Breakpoints */
+        /* Intermediate: 992px - 1400px */
+        @media (max-width: 1400px) {
+             .grid-top-row {
+                /* Allow top row to shrink but try to keep 3 cols if possible, else auto-fit */
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }
+        }
+
+        /* Tablet/Mobile breakdown: < 992px */
+        @media (max-width: 992px) {
+            .grid-top-row,
+            .grid-bottom-row {
+                grid-template-columns: 1fr;
+            }
+            
+            /* Adjust map height on smaller screens to prevent scroll blocking */
+            #districtMap {
+                height: 400px !important; 
+            }
         }
 
         .chart-container {
@@ -456,9 +483,22 @@
         }
 
         /* Responsive */
-        @media (max-width: 1200px) {
-            .dashboard-grid {
+        @media (max-width: 992px) {
+            .dashboard-grid:nth-of-type(1),
+            .dashboard-grid:nth-of-type(2) {
                 grid-template-columns: 1fr;
+            }
+
+            
+            /* Adjust map height on smaller screens to prevent scroll blocking */
+            #districtMap {
+                height: 400px !important; 
+            }
+        }
+
+        @media (max-width: 768px) {
+             #districtMap {
+                height: 300px !important; 
             }
         }
 
@@ -607,7 +647,7 @@
         <div id="alertContainer"></div>
 
         <!-- Main Dashboard Grid -->
-        <div class="dashboard-grid">
+        <div class="dashboard-grid grid-top-row">
             <!-- Gender-based Positivity -->
             <div class="chart-container">
                 <div class="chart-header">
@@ -633,10 +673,23 @@
                     <canvas id="precipitationChart"></canvas>
                 </div>
             </div>
+
+            <!-- Monthly Temperature -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">
+                        <i class="fas fa-thermometer-half"></i> Monthly Average Temperature
+                    </div>
+                    <div class="chart-meta">Temperature trends</div>
+                </div>
+                <div class="chart-canvas">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Second Row Charts -->
-        <div class="dashboard-grid">
+        <div class="dashboard-grid grid-bottom-row">
             <!-- Monthly Trend -->
             <div class="chart-container">
                 <div class="chart-header">

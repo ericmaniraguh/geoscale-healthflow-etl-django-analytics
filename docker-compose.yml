@@ -1,0 +1,145 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:13
+    env_file:
+      - .env_airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+
+  redis:
+    image: redis:latest
+    restart: always
+
+  airflow-webserver:
+    image: apache/airflow:2.9.1
+    command: webserver
+    ports:
+      - "${AIRFLOW_WEBSERVER_PORT:-8080}:8080"
+    env_file:
+      - .env_airflow
+
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    user: "${AIRFLOW_UID:-50000}:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      airflow-init:
+        condition: service_completed_successfully
+    restart: always
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.1
+    command: scheduler
+    env_file:
+      - .env_airflow
+
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    user: "${AIRFLOW_UID:-50000}:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      airflow-init:
+        condition: service_completed_successfully
+    restart: always
+
+  airflow-triggerer:
+    image: apache/airflow:2.9.1
+    command: triggerer
+    env_file:
+      - .env_airflow
+
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    user: "${AIRFLOW_UID:-50000}:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      airflow-init:
+        condition: service_completed_successfully
+    restart: always
+
+  airflow-init:
+    image: apache/airflow:2.9.1
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        if [[ -z "${AIRFLOW_UID}" ]]; then
+          echo
+          echo -e "\033[1;33mWARNING!!!: AIRFLOW_UID not set!\e[0m"
+          echo "If you are on Linux, you SHOULD follow the instructions below to set "
+          echo "AIRFLOW_UID environment variable, otherwise files will be owned by root."
+          echo "For other operating systems you can get rid of the warning with manually created .env file:"
+          echo "    See: https://airflow.apache.org/docs/apache-airflow/stable/start/docker.html#setting-the-right-airflow-user"
+          echo
+        fi
+        one_meg=1048576
+        mem_available=$$(awk '/MemTotal/ {print $$2}' /proc/meminfo)
+        cpus_available=$$(nproc)
+        disk_available=$$(df / | awk 'NR==2 {print $$4}')
+        warning_resources="false"
+        if (( mem_available < 4000 * one_meg )); then
+          echo
+          echo -e "\033[1;33mWARNING!!!: You have less than 4GB memory available. You might face stability issues\e[0m"
+          echo
+          warning_resources="true"
+        fi
+        if (( cpus_available < 2 )); then
+          echo
+          echo -e "\033[1;33mWARNING!!!: You have less than 2 CPUs available. You might face stability issues\e[0m"
+          echo
+          warning_resources="true"
+        fi
+        if (( disk_available < 10 * one_meg )); then
+          echo
+          echo -e "\033[1;33mWARNING!!!: You have less than 10GB disk space available. You might face stability issues\e[0m"
+          echo
+          warning_resources="true"
+        fi
+        if [[ "$${warning_resources}" == "true" ]]; then
+          echo
+          echo -e "\033[1;33mWARNING!!!: Resources might be insufficient for production usage.\e[0m"
+          echo
+        fi
+        # Create User
+        airflow users create \
+          --username airflow \
+          --firstname Airflow \
+          --lastname Admin \
+          --role Admin \
+          --email admin@example.com \
+          --password $${AIRFLOW_ADMIN_PASSWORD}
+        # Initialize DB
+        airflow db migrate
+        airflow db init
+    env_file:
+      - .env_airflow
+
+    user: "${AIRFLOW_UID:-50000}:0"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+volumes:
+  postgres-db-volume:

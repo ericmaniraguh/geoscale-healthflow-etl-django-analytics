@@ -76,3 +76,7 @@ Pillow==11.0.0
 twilio==8.5.0
 django-environ==0.10.0
 
+cryptography
+chardet
+pendulum
+

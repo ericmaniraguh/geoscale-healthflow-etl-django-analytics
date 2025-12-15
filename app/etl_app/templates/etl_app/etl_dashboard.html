@@ -20,7 +20,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #02690a 0%, #014d06 100%);
             min-height: 100vh;
         }
 
@@ -536,7 +536,7 @@
         }
 
         .submit-btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(45deg, #6c757d, #495057);
             color: white;
             border: none;
             padding: 15px 30px;
@@ -888,8 +888,8 @@
                 
                 <!-- User Info Header -->
                 <div class="user-info-header">
-                    <div class="username">Welcome, Admin!</div>
-                    <div class="role admin">Admin - Staff Access</div>
+                    <div class="username">Welcome, {{ username }}!</div>
+                    <div class="role {% if is_admin %}admin{% else %}user{% endif %}">{{ user_role }}</div>
                 </div>
             </div>
 
