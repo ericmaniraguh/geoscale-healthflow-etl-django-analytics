@@ -13,6 +13,11 @@
     <!-- Leaflet Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- DataTables -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 
     
     <style>
@@ -777,7 +782,7 @@
                     <i class="fas fa-map-pin"></i> Malaria Positivity Rate by Village
                 </h3>
                 <div class="table-container">
-                    <table class="data-table">
+                    <table id="villageTable" class="data-table">
                         <thead>
                             <tr>
                                 <th>No.</th>
@@ -822,10 +827,34 @@
 
     <script>
         let charts = {};
+        let villageDataTable; // Global DataTable instance
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Dashboard initializing...');
+            
+            // Initialize DataTables ONCE
+            if ($.fn.DataTable) {
+                villageDataTable = $('#villageTable').DataTable({
+                    pageLength: 10,
+                    lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+                    order: [[4, 'desc']], // Sort by Positivity Rate
+                    columns: [
+                        { data: 'no' },
+                        { data: 'village' },
+                        { data: 'tests' },
+                        { data: 'positive' },
+                        { data: 'rate' },
+                        { data: 'risk' },
+                        { data: 'year' }
+                    ],
+                    language: {
+                        search: "_INPUT_",
+                        searchPlaceholder: "Search villages..."
+                    }
+                });
+            }
+
             initializeCharts();
             loadProvinces();
             loadDashboardData();
@@ -1488,23 +1517,35 @@
                 // Villages Data
                 const villagesResponse = await fetch(`/analytics_dashboard/api/villages/${queryString}`);
                 const villagesData = villagesResponse.ok ? await villagesResponse.json() : { villages: [] };
-                const tableBody = document.getElementById('villageTableBody');
-                tableBody.innerHTML = '';
-                villagesData.villages.forEach((v, index) => {
-                    const riskLevel = v.rate > 30 ? 'high' : v.rate > 20 ? 'medium' : 'low';
-                    const row = `
-                        <tr>
-                            <td>${index + 1}</td>
-                            <td><strong>${v.village}</strong></td>
-                            <td>${v.tests}</td>
-                            <td>${v.positive}</td>
-                            <td><strong>${v.rate.toFixed(2)}%</strong></td>
-                            <td><span class="badge badge-${riskLevel}">${riskLevel}</span></td>
-                            <td>${v.year}</td>
-                        </tr>
-                    `;
-                    tableBody.innerHTML += row;
-                });
+                
+                // Optimized DataTables update
+                if (villageDataTable) {
+                    const newRows = villagesData.villages.map((v, index) => {
+                        const riskLevel = v.rate > 30 ? 'high' : v.rate > 20 ? 'medium' : 'low';
+                        const badgeClass = riskLevel;
+                        return {
+                            no: index + 1,
+                            village: v.village,
+                            tests: v.tests.toLocaleString(),
+                            positive: v.positive.toLocaleString(),
+                            rate: `<span class="status-badge ${badgeClass}">${v.rate}%</span>`,
+                            risk: `<span class="badge badge-${riskLevel}">${riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}</span>`,
+                            year: v.year
+                        };
+                    });
+                    
+                    villageDataTable.clear().rows.add(newRows).draw();
+                } else {
+                    // Fallback if DataTables failed to load
+                    const tableBody = document.getElementById('villageTableBody');
+                    tableBody.innerHTML = '';
+                    villagesData.villages.forEach((v, index) => {
+                        // ... fallback rendering ...
+                        const riskLevel = v.rate > 30 ? 'high' : v.rate > 20 ? 'medium' : 'low';
+                         row.innerHTML = `<td>${index+1}</td><td>${v.village}</td>...`; 
+                         tableBody.appendChild(row);
+                    });
+                }
 
                 // Location Summary Data
                 const summaryResponse = await fetch(`/analytics_dashboard/api/location-summary/?group_by=district${params ? '&' + params : ''}`);
