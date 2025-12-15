@@ -107,7 +107,17 @@ def get_year_filter(request):
             return [int(y) for y in years_str.split(',') if y.strip()]
         except ValueError:
             pass
+            pass
     return None
+
+def table_exists(table_name):
+    """Check if a table exists in the database"""
+    if not table_name:
+        return False
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT to_regclass(%s)", [table_name])
+        return cursor.fetchone()[0] is not None
+
 
 # ============================================================================
 # DECORATORS
@@ -312,8 +322,8 @@ def get_map_data(request):
             pos = data.get('total_positive', 0)
             rate = round((pos / tests * 100), 1) if tests > 0 else 0
             
-            if rate > 5: level = 'High'
-            elif rate >= 1: level = 'Medium'
+            if rate > 30: level = 'High'
+            elif rate >= 20: level = 'Medium'
             else: level = 'Low'
             
             features.append({
@@ -699,3 +709,27 @@ def export_data(request):
     Placeholder for now to satisfy URLconf.
     """
     return JsonResponse({"status": "error", "message": "Export functionality not implemented yet"}, status=501)
+
+@login_required
+@require_http_methods(["GET"])
+@handle_errors
+def get_available_years(request):
+    """
+    Fetch distinct years available in the health dataset.
+    """
+    province, district, sector = get_location_hierarchy(request)
+    table_name = get_dynamic_table_name('health_raw', district, sector)
+    
+    if not table_exists(table_name):
+        return JsonResponse({'years': []})
+
+    with connection.cursor() as cursor:
+        try:
+            cursor.execute(f"SELECT DISTINCT year FROM {table_name} ORDER BY year DESC")
+            rows = cursor.fetchall()
+            years = [row[0] for row in rows if row[0] is not None]
+        except Exception as e:
+            logger.warning(f"Error fetching years from {table_name}: {e}")
+            years = []
+        
+    return JsonResponse({'years': years})

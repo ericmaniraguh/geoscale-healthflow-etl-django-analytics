@@ -297,6 +297,23 @@
             height: 350px;
             width: 100%;
         }
+        
+        /* Map specific override for better visibility */
+        .map-canvas {
+            height: 500px;
+        }
+        
+        @media (max-width: 992px) {
+            .map-canvas {
+                height: 400px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .map-canvas {
+                height: 300px;
+            }
+        }
 
         /* Map Container */
         .map-container {
@@ -591,12 +608,14 @@
             <!-- Filters Section -->
             <div style="border-top: 1px solid #e9ecef; padding-top: 20px; margin-top: 20px;">
                 <div class="filter-group">
-                    <span class="filter-label">📅 Year(s):</span>
-                    <select id="yearFilter" multiple size="1" style="height: 45px;" onchange="updateDashboard()">
-                        <option value="2021" selected>2021</option>
-                        <option value="2022" selected>2022</option>
-                        <option value="2023" selected>2023</option>
-                    </select>
+                     <span class="filter-label">📅 Year Range:</span>
+                     <select id="startYear" style="height: 45px;" onchange="updateDashboard()">
+                         <option value="" disabled>From...</option>
+                     </select>
+                     <span style="font-weight:bold; color:#666;">-</span>
+                     <select id="endYear" style="height: 45px;" onchange="updateDashboard()">
+                         <option value="" disabled>To...</option>
+                     </select>
                 </div>
 
                 <div class="filter-group">
@@ -758,7 +777,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="chart-canvas">
+                <div class="chart-canvas map-canvas">
                     <!-- REPLACED: Canvas with Map Container -->
                     <div id="districtMap" style="height: 100%; width: 100%; border-radius: 8px;"></div>
                 </div>
@@ -855,11 +874,78 @@
                 });
             }
 
-            initializeCharts();
-            loadProvinces();
-            loadDashboardData();
-            loadMap(); // NEW: Load Map
+            // Load years first, then dashboard data
+            loadYears().then(() => {
+                 initializeCharts();
+                 loadProvinces();
+                 loadDashboardData();
+                 loadMap(); 
+            });
         });
+
+        // Fetches available years and populates the range dropdowns
+        async function loadYears() {
+            const startSelect = document.getElementById('startYear');
+            const endSelect = document.getElementById('endYear');
+            try {
+                const response = await fetch('/analytics_dashboard/api/years/');
+                
+                const contentType = response.headers.get("content-type");
+                if (!response.ok || !contentType || !contentType.includes("application/json")) {
+                     throw new Error("Invalid server response");
+                }
+
+                const data = await response.json();
+                let years = [];
+                
+                if (data.years && Array.isArray(data.years)) years = data.years;
+                else if (Array.isArray(data)) years = data;
+
+                startSelect.innerHTML = '';
+                endSelect.innerHTML = '';
+                
+                if (years.length > 0) {
+                     // Sort descending (2023, 2022...)
+                     years.sort((a, b) => b - a);
+
+                     years.forEach(year => {
+                        startSelect.appendChild(new Option(year, year));
+                        endSelect.appendChild(new Option(year, year));
+                     });
+                     
+                     // Defaults: Start = Min Year, End = Max Year
+                     // Since sorted DESC: Max is [0], Min is [length-1]
+                     // User request: "Select range... focusing on year most"
+                     // Let's set default to LATEST year only for both to show most recent data, 
+                     // OR full range. User said "2021-2022", "2021-2021".
+                     // Let's default to FULL range available.
+                     
+                     endSelect.value = years[0]; // Max
+                     startSelect.value = years[years.length - 1]; // Min
+                } else {
+                     startSelect.appendChild(new Option("No Data", ""));
+                     endSelect.appendChild(new Option("No Data", ""));
+                }
+                
+                // Trigger change
+                updateDashboard();
+
+            } catch (error) {
+                console.error('Error loading years:', error);
+                // Fallback to default years if API fails
+                const fallbackYears = [2023, 2022, 2021];
+                startSelect.innerHTML = '';
+                endSelect.innerHTML = '';
+                fallbackYears.forEach(year => {
+                    startSelect.appendChild(new Option(year, year));
+                    endSelect.appendChild(new Option(year, year));
+                });
+                if (fallbackYears.length > 0) {
+                     endSelect.value = fallbackYears[0]; 
+                     startSelect.value = fallbackYears[fallbackYears.length - 1]; 
+                }
+            }
+        }
 
         // ===== MAP VISUALIZATION =====
         let map;
@@ -874,17 +960,12 @@
                     attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
 
-                // Add Health Center Marker (Kamabuye HC) - Red Cross
-                var hcIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: "<div style='background-color: white; border-radius: 50%; padding: 2px; box-shadow: 0 0 5px rgba(0,0,0,0.5);'><i class='fas fa-plus' style='color: #d32f2f; font-size: 16px;'></i></div>",
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                });
+                // Marker will be added dynamically based on data
                 
-                L.marker([-2.2850, 30.1500], {icon: hcIcon}) // Approx location in Kamabuye
-                    .addTo(map)
-                    .bindPopup("<b>Kamabuye Health Center</b><br>Main Facility");
+                // Handle Window Resize
+                window.addEventListener('resize', function() {
+                    map.invalidateSize();
+                });
             }
 
             try {
@@ -903,10 +984,30 @@
                 // Update Legend
                 updateLegend(mode);
 
-                // Get selected years from multi-select
-                const yearSelect = document.getElementById('yearFilter');
-                const selectedYears = Array.from(yearSelect.selectedOptions).map(option => option.value);
-                const yearsParam = selectedYears.length > 0 ? selectedYears.join(',') : '';
+                // Get selected years from range
+                
+                // Get selected years from range
+                const startVal = document.getElementById('startYear').value;
+                const endVal = document.getElementById('endYear').value;
+                const startYear = startVal ? parseInt(startVal) : null;
+                const endYear = endVal ? parseInt(endVal) : null;
+                let yearsParam = '';
+                
+                if (startYear && endYear && !isNaN(startYear) && !isNaN(endYear)) {
+                    // Generate list of years inclusive
+                    let years = [];
+                    // Handle reverse selection
+                    const mn = Math.min(startYear, endYear);
+                    const mx = Math.max(startYear, endYear);
+                    for (let y = mx; y >= mn; y--) {
+                        years.push(y);
+                    }
+                    yearsParam = years.join(',');
+                } else if (startYear && !isNaN(startYear)) {
+                    yearsParam = startYear.toString();
+                } else if (endYear && !isNaN(endYear)) {
+                    yearsParam = endYear.toString();
+                }
                 
                 // Fetch GeoJSON with current filters (including empty strings if not filtered)
                 const response = await fetch(`/analytics_dashboard/api/map-data/?province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}&sector=${encodeURIComponent(sector)}&source=${source}&years=${encodeURIComponent(yearsParam)}`);
@@ -952,8 +1053,29 @@
                         }
                     }).addTo(map);
                     
-                    // Zoom to fit with padding (Framing)
+                     // Zoom to fit with padding (Framing)
                     map.fitBounds(geojsonLayer.getBounds(), {padding: [50, 50], maxZoom: 14});
+
+                    // --- DYNAMIC MARKER PLACEMENT ---
+                    // Find Kampeka village and place marker at its centroid
+                    const kampekaFeature = data.features.find(f => f.properties.village && f.properties.village.toLowerCase() === 'kampeka');
+                    
+                    if (kampekaFeature) {
+                        const tempLayer = L.geoJSON(kampekaFeature);
+                        const center = tempLayer.getBounds().getCenter();
+                        
+                        var hcIcon = L.divIcon({
+                            className: 'custom-div-icon',
+                            html: "<div style='background-color: white; border-radius: 50%; padding: 2px; box-shadow: 0 0 5px rgba(0,0,0,0.5);'><i class='fas fa-plus' style='color: #d32f2f; font-size: 16px;'></i></div>",
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12]
+                        });
+
+                        L.marker(center, {icon: hcIcon})
+                            .addTo(map)
+                            .bindPopup("<b>Health Center / Red Cross</b><br>Kampeka Village (Centroid)");
+                    }
+                    // ---------------------------------
                 } else {
                      console.log("No features found for map selection");
                 }
@@ -977,20 +1099,21 @@
                 
                 if (mode === 'malaria') {
                     div.innerHTML = `
-                        <h5 style="margin:0 0 8px;font-size:13px;font-weight:bold;">Malaria Risk Level</h5>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#dc3545;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">High (> 5%)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ffc107;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">Medium (1 - 5%)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#28a745;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">Low (< 1%)</span></div>
-                        <div style="display:flex;align-items:center;"><span style="background:#6c757d;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;opacity:0.3;"></span><span style="font-size:12px">No Data</span></div>
-                    `;
+                        <h5 style="margin:0 0 8px;font-size:13px;font-weight:bold;">Positivity Rate (%)</h5>
+                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ff0000;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">19.3 - 25.4 (Red)</span></div>
+                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ff4500;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">15.4 - 19.2 (Red-Org)</span></div>
+                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ff8c00;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">11.4 - 15.3 (Orange)</span></div>
+                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ffc107;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">5.0 - 11.3 (Yellow-Org)</span></div>
+                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ffff00;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">0.0 - 4.9 (Yellow)</span></div>
+                   `;
                 } else {
                     div.innerHTML = `
                         <h5 style="margin:0 0 8px;font-size:13px;font-weight:bold;">Max Slope (Degrees)</h5>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#d32f2f;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">> 16.5 (Red)</span></div>
+                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#d32f2f;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">16.5 - 46.21 (Red)</span></div>
                         <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ff9800;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">10.34 - 16.49 (Orange)</span></div>
                         <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#ffeb3b;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">6.17 - 10.33 (Yellow)</span></div>
                         <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#99e65f;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">2.73 - 6.16 (Lt Green)</span></div>
-                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#28a745;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">0 - 2.72 (Green)</span></div>
+                        <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#28a745;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">0.01 - 2.72 (Green)</span></div>
                     `;
                 }
                 return div;
@@ -1010,7 +1133,7 @@
                 };
             } else {
                 return {
-                    fillColor: getRiskColor(feature.properties.risk_level),
+                    fillColor: getPositivityColor(feature.properties.positivity_rate),
                     weight: 1,
                     opacity: 1,
                     color: 'white',
@@ -1021,19 +1144,21 @@
         }
 
         function getSlopeColor(slope) {
-            // Colors from Legend
-            return slope > 16.5 ? '#d32f2f' :
-                   slope > 10.33 ? '#ff9800' :
-                   slope > 6.16  ? '#ffeb3b' :
-                   slope > 2.73  ? '#99e65f' : 
+            // ... existing slope logic ...
+            return slope >= 16.5 ? '#d32f2f' :
+                   slope >= 10.34 ? '#ff9800' :
+                   slope >= 6.17  ? '#ffeb3b' :
+                   slope >= 2.73  ? '#99e65f' : 
                                    '#28a745';
         }
 
-        function getRiskColor(level) {
-            return level === 'High' ? '#dc3545' :
-                   level === 'Medium' ? '#ffc107' :
-                   level === 'Low' ? '#28a745' : 
-                                     '#6c757d';
+        function getPositivityColor(rate) {
+            // 5-tier scale from user image
+            return rate >= 19.3 ? '#ff0000' : // Red
+                   rate >= 15.4 ? '#ff4500' : // Red-Orange
+                   rate >= 11.4 ? '#ff8c00' : // Orange
+                   rate >= 5.0  ? '#ffc107' : // Yellow-Orange
+                                  '#ffff00';  // Yellow (0-4.9)
         }
         
         // Hook into existing update function
@@ -1044,6 +1169,8 @@
              loadDashboardData();
              loadMap(); // Update map on filter change
         };
+
+
 
         // ===== LOCATION FILTERING =====
         async function loadProvinces() {
@@ -1133,10 +1260,37 @@
             const district = document.getElementById('districtFilter').value;
             const sector = document.getElementById('sectorFilter').value;
 
-            // Get selected years
-            const yearSelect = document.getElementById('yearFilter');
-            const selectedYears = Array.from(yearSelect.selectedOptions).map(option => option.value);
-            // ==========================================
+            // Get selected years from range
+            const startVal = document.getElementById('startYear').value;
+            const endVal = document.getElementById('endYear').value;
+            const startYear = startVal ? parseInt(startVal) : null;
+            const endYear = endVal ? parseInt(endVal) : null;
+            
+            if (startYear && endYear && !isNaN(startYear) && !isNaN(endYear)) {
+                let years = [];
+                const mn = Math.min(startYear, endYear);
+                const mx = Math.max(startYear, endYear);
+                for (let y = mx; y >= mn; y--) years.push(y);
+                params.append('years', years.join(','));
+            } else if (startYear && !isNaN(startYear)) {
+                params.append('years', startYear.toString());
+            } else if (endYear && !isNaN(endYear)) {
+                params.append('years', endYear.toString());
+            }
+
+            if (province) params.append('province', province);
+            if (district) params.append('district', district);
+            if (sector) params.append('sector', sector);
+            
+            return params.toString();
+        }
+
+        function updateDashboard() {
+            loadDashboardData();
+            loadMap();
+        }
+
+        // ==========================================
         // DYNAMIC LOCATION FILTERS
         // ==========================================
         
@@ -1248,32 +1402,7 @@
             updateDashboard();
         }
 
-        // Initialize Filters on Load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadProvinces();
-            loadDistricts(); // Load all initially
-            // updateDashboard() is called at end of script
-        });
-            if (selectedYears.length > 0) {
-                params.append('years', selectedYears.join(','));
-            }
 
-            if (province) params.append('province', province);
-            if (district) params.append('district', district);
-            if (sector) params.append('sector', sector);
-            
-            return params.toString();
-        }
-
-        function clearFilters() {
-            document.getElementById('provinceFilter').value = '';
-            document.getElementById('districtFilter').value = '';
-            document.getElementById('districtFilter').innerHTML = '<option value="">Select District...</option>';
-            document.getElementById('sectorFilter').value = '';
-            document.getElementById('sectorFilter').innerHTML = '<option value="">Select Sector...</option>';
-            document.getElementById('sectorFilter').disabled = true;
-            updateDashboard();
-        }
 
         // ===== CHART INITIALIZATION =====
         function initializeCharts() {

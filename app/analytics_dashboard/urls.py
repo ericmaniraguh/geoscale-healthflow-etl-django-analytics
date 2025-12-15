@@ -52,7 +52,10 @@ urlpatterns = [
     
     # NEW: Map Data endpoint
     path('api/map-data/', views.get_map_data, name='api_map_data'),
-    
+
+    # NEW: Available Years endpoint
+    path('api/years/', views.get_available_years, name='api_years'),
+        
     # Additional API endpoints
     path('api/refresh/', views.refresh_data, name='api_refresh'),
     path('api/export/', views.export_data, name='api_export'),
