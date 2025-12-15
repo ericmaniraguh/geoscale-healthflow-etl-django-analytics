@@ -403,6 +403,7 @@ def get_gender_analysis(request):
 @handle_errors
 def get_precipitation_data(request):
     """Get monthly precipitation data from weather_juru_prec_and_juru_temp_no_district"""
+    province, district, sector = get_location_hierarchy(request)
     years_filter = get_year_filter(request)
     
     try:
@@ -417,6 +418,19 @@ def get_precipitation_data(request):
         if years_filter:
             query += " AND year IN %s"
             params.append(tuple(years_filter))
+            
+        if district:
+            # Filter by district column if it matches
+            query += " AND (district ILIKE %s)"
+            params.append(district)
+
+        if sector:
+            # Filter by sector using loose matching on station name since we don't have a direct sector column
+            # Assuming station name might contain sector name
+            query += " AND (prec_station ILIKE %s OR metadata ILIKE %s)"
+            sector_pattern = f"%{sector}%"
+            params.append(sector_pattern)
+            params.append(sector_pattern)
             
         group_by = " GROUP BY year, month ORDER BY month"
         query += group_by
@@ -467,6 +481,7 @@ def get_precipitation_data(request):
 @handle_errors
 def get_temperature_data(request):
     """Get monthly temperature data from weather_juru_prec_and_juru_temp_no_district"""
+    province, district, sector = get_location_hierarchy(request)
     years_filter = get_year_filter(request)
     
     try:
@@ -481,6 +496,17 @@ def get_temperature_data(request):
         if years_filter:
             query += " AND year IN %s"
             params.append(tuple(years_filter))
+            
+        if district:
+            query += " AND (district ILIKE %s)"
+            params.append(district)
+
+        if sector:
+            # Filter by sector using loose matching on station name
+            query += " AND (temp_station ILIKE %s OR metadata ILIKE %s)"
+            sector_pattern = f"%{sector}%"
+            params.append(sector_pattern)
+            params.append(sector_pattern)
             
         group_by = " GROUP BY year, month ORDER BY month"
         query += group_by

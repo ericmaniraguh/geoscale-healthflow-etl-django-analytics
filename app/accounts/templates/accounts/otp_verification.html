@@ -9,8 +9,9 @@
     <img src="{% static 'accounts/Images/upanzi-network-logo.png' %}" alt="Company Logo">
   </div>
   
-  <h2>Verify Your Email</h2>
-  <p>We've sent a 6-digit verification code to <strong>{{ user_email }}</strong></p>
+  <h2>📧 Verify Your Email</h2>
+  <p>We've sent a 6-digit verification code to:<br><strong>{{ user_email }}</strong></p>
+  <p style="color: #666; font-size: 14px;">Please check your email and enter the code below.</p>
 
   {% if messages %}
     <div class="messages">
@@ -32,35 +33,52 @@
         name="otp_code" 
         id="otp_code" 
         class="form-input" 
-        placeholder="Enter 6-digit code"
+        placeholder="000000"
         maxlength="6"
-        pattern="\d{6}"
         required
         autofocus
+        style="font-size: 32px; letter-spacing: 10px; text-align: center; font-family: 'Courier New', monospace; font-weight: bold;"
       >
+      <small style="display: block; margin-top: 8px; color: #666;">Enter the 6-digit code from your email</small>
     </div>
 
-    <button type="submit" class="btn-primary">Verify Code</button>
+    <button type="submit" class="btn-primary" style="margin-top: 20px;">Verify Code</button>
   </form>
 
-  <div style="margin-top: 20px; text-align: center;">
-    <p>Didn't receive the code?</p>
+  <div style="margin-top: 30px; text-align: center; padding: 20px; background: #f9fafb; border-radius: 8px;">
+    <p style="color: #666; margin-bottom: 15px;">Didn't receive the code?</p>
     <button 
       id="resend-btn" 
       class="btn-secondary"
       onclick="resendOTP()"
+      type="button"
     >
       Resend Code
     </button>
-    <p id="resend-message" style="margin-top: 10px; color: #666;"></p>
+    <p id="resend-message" style="margin-top: 10px; font-size: 14px;"></p>
   </div>
 
   <p class="alt" style="margin-top: 20px;">
-    <a href="{% url 'accounts:signup' %}">Back to Sign Up</a>
+    <a href="{% url 'accounts:signup' %}">← Back to Sign Up</a>
   </p>
 </div>
 
 <script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
 function resendOTP() {
   const btn = document.getElementById('resend-btn');
   const message = document.getElementById('resend-message');
@@ -71,17 +89,16 @@ function resendOTP() {
   fetch("{% url 'accounts:resend_otp' %}", {
     method: 'POST',
     headers: {
-      'X-CSRFToken': '{{ csrf_token }}',
+      'X-CSRFToken': getCookie('csrftoken'),
       'Content-Type': 'application/json',
     },
   })
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      message.textContent = data.message;
-      message.style.color = 'green';
+      message.textContent = '✓ ' + data.message;
+      message.style.color = '#10b981';
       
-      // Countdown timer
       let countdown = 60;
       const timer = setInterval(() => {
         btn.textContent = `Resend Code (${countdown}s)`;
@@ -94,38 +111,49 @@ function resendOTP() {
         }
       }, 1000);
     } else {
-      message.textContent = data.message;
-      message.style.color = 'red';
+      message.textContent = '✗ ' + data.message;
+      message.style.color = '#ef4444';
       btn.disabled = false;
       btn.textContent = 'Resend Code';
     }
   })
   .catch(error => {
-    message.textContent = 'An error occurred. Please try again.';
-    message.style.color = 'red';
+    message.textContent = '✗ An error occurred. Please try again.';
+    message.style.color = '#ef4444';
     btn.disabled = false;
     btn.textContent = 'Resend Code';
   });
 }
 
-// Auto-format OTP input
+// Only allow numbers
 document.getElementById('otp_code').addEventListener('input', function(e) {
   this.value = this.value.replace(/\D/g, '').substring(0, 6);
 });
 </script>
 
 <style>
+.form-container {
+  margin: 50px auto;
+  max-width: 450px;
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
 .btn-secondary {
   background: transparent;
   color: #4f46e5;
   border: 2px solid #4f46e5;
-  padding: 10px 20px;
+  padding: 12px 24px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: #4f46e5;
   color: white;
 }

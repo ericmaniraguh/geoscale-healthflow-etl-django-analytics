@@ -53,5 +53,5 @@ def create_analytics_tables(db):
         cursor.execute("CREATE TABLE hc_data_yearly_statist_bugesera_kamabuye (total_tests INT, positive_cases INT, negative_cases INT, positivity_rate FLOAT, year INT, filter_district VARCHAR, filter_sector VARCHAR);")
         cursor.execute("CREATE TABLE hc_api_east_bugesera (population INT, api FLOAT, province VARCHAR, district VARCHAR, sector VARCHAR);")
         cursor.execute("CREATE TABLE hc_raw_bugesera_kamabuye (gender VARCHAR, test_result VARCHAR, is_positive BOOLEAN, year INT, district VARCHAR, sector VARCHAR, village VARCHAR);")
-        cursor.execute("CREATE TABLE weather_juru_prec_and_juru_temp_no_district (year INT, month INT, monthly_precipitation FLOAT, monthly_temperature FLOAT);")
+        cursor.execute("CREATE TABLE weather_juru_prec_and_juru_temp_no_district (year INT, month INT, monthly_precipitation FLOAT, monthly_temperature FLOAT, district VARCHAR, prec_station VARCHAR, temp_station VARCHAR, metadata VARCHAR);")
         cursor.execute("CREATE TABLE hc_data_monthly_positivity_bugesera_kamabuye (month_name VARCHAR, positivity_rate FLOAT, year INT, month INT, filter_district VARCHAR, filter_sector VARCHAR);")

@@ -39,10 +39,11 @@ class TestAnalyticsDashboard:
             # weather
             cursor.execute("""
                 INSERT INTO weather_juru_prec_and_juru_temp_no_district
-                (year, month, monthly_precipitation, monthly_temperature)
+                (year, month, monthly_precipitation, monthly_temperature, district, prec_station, temp_station, metadata)
                 VALUES
-                (2023, 1, 100.5, 25.0),
-                (2023, 2, 120.0, 26.0)
+                (2023, 1, 100.5, 25.0, 'Bugesera', 'Juru Station', 'Nyamata Station', 'prec station: Juru - ...'),
+                (2023, 2, 120.0, 26.0, 'Bugesera', 'Juru Station', 'Nyamata Station', 'prec station: Juru - ...'),
+                (2023, 1, 200.0, 30.0, 'Kicukiro', 'Kicukiro Station', 'Kicukiro Station', '...')
             """)
             
             # monthly trend
@@ -106,7 +107,7 @@ class TestAnalyticsDashboard:
         data_prec = res_prec.json()
         assert '2023' in data_prec
         # Expecting non-zero value for Jan (index 0)
-        assert data_prec['2023'][0] == 100.5
+        assert data_prec['2023'][0] == 150.25
         
         # Temperature
         url_temp = reverse('analytics_dashboard:temperature_data')
@@ -114,7 +115,7 @@ class TestAnalyticsDashboard:
         assert res_temp.status_code == 200
         data_temp = res_temp.json()
         assert '2023' in data_temp
-        assert data_temp['2023'][0] == 25.0
+        assert data_temp['2023'][0] == 27.5
 
     def test_api_location_filters(self, authenticated_client):
         """Test endpoint availability for location filters."""
@@ -142,3 +143,38 @@ class TestAnalyticsDashboard:
         assert 'gender_analysis' in data
         assert 'villages' in data
         assert data['kpi']['total_tests'] >= 1500 # From populated data
+
+    def test_api_weather_data_filtering(self, authenticated_client):
+        """Test filtering logic for Precipitation and Temperature APIs."""
+        client, user = authenticated_client
+        
+        # 1. Filter by District: Bugesera
+        # Should return the bugesera data (100.5), not Kicukiro data (200.0)
+        url_prec = reverse('analytics_dashboard:precipitation_data') + "?district=Bugesera"
+        res_prec = client.get(url_prec)
+        assert res_prec.status_code == 200
+        data_prec = res_prec.json()
+        assert '2023' in data_prec
+        # Jan 2023 for Bugesera is 100.5
+        assert data_prec['2023'][0] == 100.5
+
+        # 2. Filter by District: Kicukiro
+        url_prec_k = reverse('analytics_dashboard:precipitation_data') + "?district=Kicukiro"
+        res_prec_k = client.get(url_prec_k)
+        data_prec_k = res_prec_k.json()
+        assert data_prec_k['2023'][0] == 200.0
+
+        # 3. Filter by Sector: Juru (matches 'Juru Station' in prec_station)
+        # Should match the Bugesera record
+        url_prec_s = reverse('analytics_dashboard:precipitation_data') + "?sector=Juru"
+        res_prec_s = client.get(url_prec_s)
+        data_prec_s = res_prec_s.json()
+        assert data_prec_s['2023'][0] == 100.5
+        
+        # 4. Filter by Sector: Nyamata (matches 'Nyamata Station' in temp_station)
+        # Testing temperature endpoint
+        url_temp_s = reverse('analytics_dashboard:temperature_data') + "?sector=Nyamata"
+        res_temp_s = client.get(url_temp_s)
+        data_temp_s = res_temp_s.json()
+        # Jan 2023 temp is 25.0
+        assert data_temp_s['2023'][0] == 25.0
