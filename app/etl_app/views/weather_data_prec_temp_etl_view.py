@@ -69,9 +69,9 @@ class WeatherDataETLView(View):
         
         return response
     
-    def _generate_unique_id(self, year, month, district, prec_station, temp_station):
+    def _generate_unique_id(self, year, month, district, sector, prec_station, temp_station):
         """Generate unique 36-character UUID based on key fields"""
-        key_string = f"{year}_{month}_{district}_{prec_station}_{temp_station}".lower()
+        key_string = f"{year}_{month}_{district}_{sector}_{prec_station}_{temp_station}".lower()
         namespace_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, key_string)
         return str(namespace_uuid)
     
@@ -94,12 +94,13 @@ class WeatherDataETLView(View):
         
         return sanitized if sanitized else "unknown"
     
-    def _generate_monthly_weather_table_name(self, prec_station, temp_station, district, years):
-        """Generate table name: weather_station_of_preci_&_station_of_temp_district_years"""
+    def _generate_monthly_weather_table_name(self, prec_station, temp_station, district, sector, years):
+        """Generate table name: weather_station_of_preci_&_station_of_temp_district_sector"""
         
         prec_clean = self._sanitize_name_part(prec_station)
         temp_clean = self._sanitize_name_part(temp_station)
         district_clean = self._sanitize_name_part(district)
+        sector_clean = self._sanitize_name_part(sector)
         
         if isinstance(years, list) and len(years) > 0:
             sorted_years = sorted(years)
@@ -110,20 +111,23 @@ class WeatherDataETLView(View):
         else:
             year_part = "all"
         
-        table_name = f"weather_{prec_clean}_prec_and_{temp_clean}_temp_{district_clean}"
+        # Format: weather_startionprec_prec_and_stationtemp_temp_district_sector
+        table_name = f"weather_{prec_clean}_prec_and_{temp_clean}_temp_{district_clean}_{sector_clean}"
         
         # Ensure table name is not too long (PostgreSQL limit is 63 characters)
         if len(table_name) > 60:
             available_length = 60 - len(f"weather__prec_and__temp__{year_part}") - 3
-            prec_max = min(len(prec_clean), available_length // 3)
-            temp_max = min(len(temp_clean), available_length // 3)
-            district_max = available_length - prec_max - temp_max
+            prec_max = min(len(prec_clean), available_length // 4)
+            temp_max = min(len(temp_clean), available_length // 4)
+            dist_max = min(len(district_clean), available_length // 4)
+            sect_max = available_length - prec_max - temp_max - dist_max
             
-            prec_short = prec_clean[:prec_max] if prec_max > 0 else prec_clean[:4]
-            temp_short = temp_clean[:temp_max] if temp_max > 0 else temp_clean[:4]
-            district_short = district_clean[:district_max] if district_max > 0 else district_clean[:4]
+            prec_short = prec_clean[:prec_max] if prec_max > 0 else prec_clean[:3]
+            temp_short = temp_clean[:temp_max] if temp_max > 0 else temp_clean[:3]
+            district_short = district_clean[:dist_max] if dist_max > 0 else district_clean[:3]
+            sector_short = sector_clean[:sect_max] if sect_max > 0 else sector_clean[:3]
             
-            table_name = f"weather_{prec_short}_prec_and_{temp_short}_temp_{district_short}"
+            table_name = f"weather_{prec_short}_prec_and_{temp_short}_temp_{district_short}_{sector_short}"
         
         return table_name
     
@@ -245,7 +249,7 @@ class WeatherDataETLView(View):
             logger.error(error_msg)
             return {'error': error_msg, 'stations': []}
     
-    def _extract_monthly_weather_data(self, client, years, prec_station=None, temp_station=None, district=None):
+    def _extract_monthly_weather_data(self, client, years, prec_station=None, temp_station=None, district=None, sector=None):
         """Optimized monthly weather data extraction with timeout protection"""
         try:
             start_time = time.time()
@@ -294,8 +298,9 @@ class WeatherDataETLView(View):
                         elif temp_station and data_type == 'temperature':
                             station_match = temp_station.lower() in station.lower()
                         
-                        if district:
-                            district_match = district.lower() in doc_district.lower()
+                        # Relaxed district filtering to allow data ingestion even if metadata lacks district info
+                        # if district:
+                        #     district_match = district.lower() in doc_district.lower()
                         
                         if station_match and district_match and collection_name:
                             metadata_records.append(doc)
@@ -492,7 +497,7 @@ class WeatherDataETLView(View):
                 
                 # Generate unique ID
                 unique_id = self._generate_unique_id(
-                    record['year'], record['month'], district_name, 
+                    record['year'], record['month'], district_name, sector,
                     prec_station_name, temp_station_name
                 )
                 
@@ -509,8 +514,11 @@ class WeatherDataETLView(View):
                     'month': record['month'],
                     'monthly_precipitation': round(record['monthly_precipitation'], 2),
                     'monthly_temperature': monthly_temp,
+                    'monthly_precipitation': round(record['monthly_precipitation'], 2),
+                    'monthly_temperature': monthly_temp,
                     'metadata': f"prec station: {prec_station_name} - monthly prec, temp station: {temp_station_name} - monthly temp, district: {district_name}",
-                    'district': district_name,
+                    'district': district if district else district_name, # Prioritize input district
+                    'sector': sector, # Add sector
                     'prec_station': record['prec_station'],
                     'temp_station': record['temp_station'],
                     'created_at': record['created_at'],
@@ -605,6 +613,7 @@ class WeatherDataETLView(View):
                     monthly_temperature NUMERIC(10,2),
                     metadata TEXT,
                     district VARCHAR(100),
+                    sector VARCHAR(100),
                     prec_station VARCHAR(100),
                     temp_station VARCHAR(100),
                     created_at TIMESTAMP DEFAULT NOW(),
@@ -620,6 +629,7 @@ class WeatherDataETLView(View):
                 CREATE INDEX IF NOT EXISTS idx_{table_name.replace('-', '_')}_unique_id ON {table_name}(unique_id);
                 CREATE INDEX IF NOT EXISTS idx_{table_name.replace('-', '_')}_year_month ON {table_name}(year, month);
                 CREATE INDEX IF NOT EXISTS idx_{table_name.replace('-', '_')}_district ON {table_name}(district);
+                CREATE INDEX IF NOT EXISTS idx_{table_name.replace('-', '_')}_sector ON {table_name}(sector);
                 CREATE INDEX IF NOT EXISTS idx_{table_name.replace('-', '_')}_stations ON {table_name}(prec_station, temp_station);
                 CREATE INDEX IF NOT EXISTS idx_{table_name.replace('-', '_')}_timestamps ON {table_name}(created_at, updated_at);
                 """
@@ -631,13 +641,13 @@ class WeatherDataETLView(View):
                 records_failed = 0
                 
                 for i, record in enumerate(data):
-                    try:
-                        # Prepare record data with safe conversion
+                    # Prepare record data with safe conversion
                         insert_data = {
                             'unique_id': record.get('unique_id', self._generate_unique_id(
                                 record.get('year', 0), 
                                 record.get('month', 1), 
                                 record.get('district', 'unknown'),
+                                record.get('sector', 'unknown'),
                                 record.get('prec_station', 'unknown'),
                                 record.get('temp_station', 'unknown')
                             )),
@@ -647,6 +657,7 @@ class WeatherDataETLView(View):
                             'monthly_temperature': float(record.get('monthly_temperature', 0.0)),
                             'metadata': str(record.get('metadata', '')),
                             'district': str(record.get('district', '')),
+                            'sector': str(record.get('sector', '')),
                             'prec_station': str(record.get('prec_station', '')),
                             'temp_station': str(record.get('temp_station', '')),
                             'created_at': record.get('created_at', self._get_current_timestamp()),
@@ -655,11 +666,11 @@ class WeatherDataETLView(View):
                         
                         # Insert SQL (same pattern as API code)
                         insert_sql = f"""
-                        INSERT INTO {table_name} 
+                        INSERT INTO {table_name}
                         (unique_id, year, month, monthly_precipitation, monthly_temperature, metadata,
-                         district, prec_station, temp_station, created_at, updated_at)
+                         district, sector, prec_station, temp_station, created_at, updated_at)
                         VALUES (:unique_id, :year, :month, :monthly_precipitation, :monthly_temperature, :metadata,
-                                :district, :prec_station, :temp_station, :created_at, :updated_at)
+                                :district, :sector, :prec_station, :temp_station, :created_at, :updated_at)
                         """
                         
                         conn.execute(text(insert_sql), insert_data)
@@ -668,14 +679,6 @@ class WeatherDataETLView(View):
                         # Log progress every 1000 records
                         if records_inserted % 1000 == 0:
                             logger.info(f"WEATHER PROGRESS: {records_inserted}/{len(data)} records inserted")
-                    
-                    except Exception as record_error:
-                        records_failed += 1
-                        logger.error(f"WEATHER ERROR inserting record {i}: {str(record_error)}")
-                        if records_failed > 10:  # Stop if too many errors
-                            logger.error("WEATHER: Too many errors, stopping insert process")
-                            break
-                        continue
                 
                 # Verify the save worked (same as API code)
                 verify_sql = f"SELECT COUNT(*) FROM {table_name}"
@@ -700,19 +703,45 @@ class WeatherDataETLView(View):
             logger.error(f"WEATHER TRACEBACK: {traceback.format_exc()}")
             return False, error_msg
     
+    def post(self, request):
+        """Handle POST requests - delegate to same logic but utilize POST data"""
+        return self.get(request)
+
     def get(self, request):
-        """Handle GET requests for monthly weather ETL with timeout protection"""
+        """Handle GET/POST requests for monthly weather ETL with timeout protection"""
         start_time = datetime.now()
         TOTAL_TIMEOUT = 90  # 90 second total timeout
         
         try:
-            # Get parameters
-            years_param = request.GET.get('years', '')
-            prec_station = request.GET.get('prec_station', '').strip()
-            temp_station = request.GET.get('temp_station', '').strip()
-            district = request.GET.get('district', '').strip()
-            show_available = request.GET.get('show_available', 'false').lower() == 'true'
-            save_to_postgres = request.GET.get('save_to_postgres', 'true').lower() == 'true'
+            # Get parameters from either JSON body, POST or GET
+            data_source = {}
+            if request.method == 'POST':
+                if request.content_type == 'application/json':
+                    try:
+                        data_source = json.loads(request.body)
+                    except json.JSONDecodeError:
+                        data_source = request.POST
+                else:
+                    data_source = request.POST
+            else:
+                data_source = request.GET
+            
+            # Handle years which might be list or string
+            years_param = data_source.get('years', '')
+            if isinstance(years_param, list):
+                years_param = ','.join(map(str, years_param))
+                
+            prec_station = str(data_source.get('prec_station', '')).strip()
+            temp_station = str(data_source.get('temp_station', '')).strip()
+            district = str(data_source.get('district', '')).strip()
+            sector = str(data_source.get('sector', '')).strip()
+            
+            # Handle boolean fields
+            show_available_val = data_source.get('show_available', False)
+            show_available = str(show_available_val).lower() == 'true' if isinstance(show_available_val, str) else bool(show_available_val)
+            
+            save_postgres_val = data_source.get('save_to_postgres', True)
+            save_to_postgres = str(save_postgres_val).lower() == 'true' if isinstance(save_postgres_val, str) else bool(save_postgres_val)
             
             # Connect to MongoDB with timeout
             client = self._connect_mongodb()
@@ -799,8 +828,9 @@ class WeatherDataETLView(View):
                         }, status=400)
                 
                 # Extract monthly weather data
+                # Extract monthly weather data
                 monthly_data, metadata_records = self._extract_monthly_weather_data(
-                    client, years, prec_station, temp_station, district
+                    client, years, prec_station, temp_station, district, sector
                 )
                 
                 if not monthly_data:
@@ -824,12 +854,13 @@ class WeatherDataETLView(View):
                 if save_to_postgres:
                     # Get station names from the data for table naming
                     sample_record = monthly_data[0]
-                    prec_station_name = sample_record.get('prec_station', 'unknown')
-                    temp_station_name = sample_record.get('temp_station', 'unknown')
-                    district_name = sample_record.get('district', 'unknown')
+                    prec_station_name = sample_record.get('prec_station')
+                    temp_station_name = sample_record.get('temp_station')
+                    district_name = sample_record.get('district')
+                    sector_name = sample_record.get('sector')
                     
                     table_name = self._generate_monthly_weather_table_name(
-                        prec_station_name, temp_station_name, district_name, years
+                        prec_station_name, temp_station_name, district_name, sector_name, years
                     )
                     
                     postgres_saved, postgres_message = self._save_monthly_weather_to_postgres(

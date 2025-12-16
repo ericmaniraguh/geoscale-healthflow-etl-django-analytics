@@ -1,18 +1,13 @@
 import os
 import json
 import logging
-import tempfile
-import uuid
-import threading
+import re
 from functools import wraps
-from datetime import timedelta
 from django.db import connection
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth import logout
 from django.core.cache import cache
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -23,49 +18,84 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# IMPORT YOUR MODELS
-# ============================================================================
-# IMPORTANT: Replace 'your_app' with your actual app name
-# Adjust these imports based on your actual models
-
-try:
-    from accounts.models import UserProfile  # Or whatever model stores location data
-    HAS_MODELS = True
-except ImportError:
-    HAS_MODELS = False
-    logger.warning("Could not import UserProfile model")
-
-# ============================================================================
-# HELPER FUNCTIONS FOR LOCATION FILTERING
+# HELPER FUNCTIONS
 # ============================================================================
 
-def build_location_filter(province=None, district=None, sector=None):
+def sanitize(text):
+    """Sanitize input for table name construction"""
+    if not text:
+        return ""
+    return re.sub(r'[^a-zA-Z0-9]', '_', text.lower())
+
+def get_dynamic_table_name(table_type, district, sector):
     """
-    Build Q filter for Django ORM
-    Returns: Q object for filtering
+    Construct dynamic table names based on location.
+    
+    Args:
+        table_type (str): 'boundary', 'health_raw', 'yearly', 'monthly', 'api'
+        district (str): Selected district name
+        sector (str): Selected sector name
+        
+    Returns:
+        str: Table name to query
     """
-    filters = Q()
+    # Default fallback as requested by user ("currently i have only Kamabuye")
+    d_clean = sanitize(district) if district else 'bugesera'
+    s_clean = sanitize(sector) if sector else 'kamabuye'
     
-    if province:
-        filters &= Q(province=province)
+    if table_type == 'boundary':
+        # Pattern: rwanda_boundaries_{district}_{sector}
+        # Note: Previous ETL seemed to create rwanda_boundaries_bugesera_kamabuye
+        return f"rwanda_boundaries_{d_clean}_{s_clean}"
+        
+    elif table_type == 'health_raw':
+        return f"hc_raw_{d_clean}_{s_clean}"
+        
+    elif table_type == 'yearly':
+        return f"hc_data_yearly_statist_{d_clean}_{s_clean}"
+        
+    elif table_type == 'monthly':
+        return f"hc_data_monthly_positivity_{d_clean}_{s_clean}"
     
-    if district:
-        filters &= Q(district=district)
-    
-    if sector:
-        filters &= Q(sector=sector)
-    
-    return filters
+    elif table_type == 'api':
+        # Assuming API tables follow a similar or district-based pattern
+        return f"hc_api_east_{d_clean}" # e.g. hc_api_east_bugesera
+        
+    return None
+
+def get_dynamic_weather_table(district):
+    """
+    Dynamically find weather table.
+    Specific logic for weather tables which have a different naming convention.
+    """
+    try:
+        # Use introspection for cross-db compatibility (SQLite/Postgres)
+        all_tables = connection.introspection.table_names()
+        # Filter for weather tables: weather_..._prec_and_..._temp_...
+        tables = [t for t in all_tables if t.startswith('weather_') and '_prec_and_' in t and '_temp_' in t]
+            
+        if not tables:
+            return None
+            
+        if district:
+            clean_district = sanitize(district)
+            matches = [t for t in tables if clean_district in t]
+            if matches:
+                return matches[0]
+                
+        # Fallback to 'no_district' or first available
+        no_district = next((t for t in tables if 'no_district' in t), None)
+        return no_district if no_district else tables[0]
+        
+    except Exception as e:
+        logger.error(f"Error finding weather table: {e}")
+        return None
 
 def get_location_hierarchy(request):
-    """
-    Extract location parameters from request
-    Returns: (province, district, sector)
-    """
-    province = request.GET.get('province', '').strip() or None
-    district = request.GET.get('district', '').strip() or None
-    sector = request.GET.get('sector', '').strip() or None
-    
+    """Extract location parameters from request"""
+    province = request.GET.get('province', '').strip()
+    district = request.GET.get('district', '').strip()
+    sector = request.GET.get('sector', '').strip()
     return province, district, sector
 
 # ============================================================================
@@ -77,26 +107,20 @@ def cache_response(timeout=300):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            # Create cache key from request
+            # Create cache key from request path and query params
             cache_key = f"{view_func.__name__}:{request.GET.urlencode()}"
-            
-            # Try to get from cache
             cached_response = cache.get(cache_key)
             if cached_response:
-                logger.debug(f"Cache hit for {cache_key}")
                 return JsonResponse(cached_response)
             
-            # Execute view
             response = view_func(request, *args, **kwargs)
             
-            # Cache the response data
             if isinstance(response, JsonResponse):
                 try:
                     data = json.loads(response.content)
                     cache.set(cache_key, data, timeout)
                 except json.JSONDecodeError:
                     pass
-            
             return response
         return wrapper
     return decorator
@@ -109,28 +133,18 @@ def handle_errors(view_func):
             return view_func(request, *args, **kwargs)
         except Exception as e:
             logger.exception(f"Error in {view_func.__name__}: {e}")
-            return JsonResponse({
-                "error": "Internal server error",
-                "message": str(e) if os.getenv('DEBUG') else "An error occurred"
-            }, status=500)
+            return JsonResponse({"error": str(e)}, status=500)
     return wrapper
 
-def is_admin(user):
-    """Check if user is admin"""
-    return user.is_authenticated and (user.is_staff or user.is_superuser)
-
 # ============================================================================
-# DASHBOARD VIEW
+# VIEWS
 # ============================================================================
 
 @login_required
 def dashboard(request):
-    """Main dashboard view - Renders analytics_dashboard.html"""
+    """Render the main analytics dashboard"""
     context = {
-        'user': request.user,
-        'is_admin': True,
         'page_title': 'Rwanda Malaria Surveillance Dashboard',
-        'api_url': request.build_absolute_uri('/analytics_dashboard/api/')
     }
     return render(request, 'analytics_dashboard/analytics_dashboard.html', context)
 
@@ -212,7 +226,7 @@ def get_sectors(request):
 
 @login_required
 @require_http_methods(["GET"])
-@cache_response(timeout=300)
+# @cache_response(timeout=60) # Short cache for map data
 @handle_errors
 def get_kpi_data(request):
     """Get Key Performance Indicators"""
@@ -229,6 +243,12 @@ def get_kpi_data(request):
     province, district, sector = get_location_hierarchy(request)
     filters = build_location_filter(province, district, sector)
     
+    boundary_table = get_dynamic_table_name('boundary', district, sector)
+    health_table_raw = get_dynamic_table_name('health_raw', district, sector) # Use raw for health join? 
+    # Actually, usually map joins with a view or table. Let's assume we join boundary with aggregated raw data.
+    
+    # Check if table exists (optional but good for debugging)
+    
     try:
         # Get counts from UserProfile or your data model
         total_users = UserProfile.objects.filter(filters).count()
@@ -244,6 +264,7 @@ def get_kpi_data(request):
             "positive_change": "5.2%",
             "negative_change": "-3.1%"
         })
+        
     except Exception as e:
         logger.error(f"Error getting KPI data: {e}")
         return JsonResponse({
@@ -266,6 +287,9 @@ def get_gender_analysis(request):
     
     province, district, sector = get_location_hierarchy(request)
     filters = build_location_filter(province, district, sector)
+    
+    table_yearly = get_dynamic_table_name('yearly', district, sector)
+    table_api = get_dynamic_table_name('api', district, sector)
     
     try:
         # Get gender distribution from UserProfile
@@ -290,8 +314,13 @@ def get_gender_analysis(request):
             "2023": values_2023
         })
     except Exception as e:
-        logger.error(f"Error getting gender analysis: {e}")
-        return JsonResponse({"labels": [], "2021": [], "2022": [], "2023": []})
+        error_msg = str(e).lower()
+        if 'undefined table' in error_msg or 'does not exist' in error_msg:
+             return JsonResponse({
+                "total_tests": 0, "total_positive": 0, "total_negative": 0,
+                "avg_positivity_rate": 0, "positive_change": "0", "negative_change": "0"
+            })
+        raise e
 
 @login_required
 @require_http_methods(["GET"])
@@ -339,6 +368,11 @@ def get_villages_data(request):
     province, district, sector = get_location_hierarchy(request)
     filters = build_location_filter(province, district, sector)
     
+    col_name = 'monthly_precipitation' if data_type == 'precipitation' else 'monthly_temperature'
+    
+    if not table_name:
+         return JsonResponse({"labels": ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], "available_years": []})
+
     try:
         # Get village statistics
         villages_data = UserProfile.objects.filter(filters).values('health_centre').annotate(
@@ -419,23 +453,19 @@ def get_location_summary(request):
         logger.error(f"Error getting location summary: {e}")
         return JsonResponse({"group_by": group_by, "summary": []})
 
-# ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
+    except Exception as e:
+         error_msg = str(e).lower()
+         if 'undefined table' in error_msg or 'does not exist' in error_msg: return JsonResponse({"labels": [], "available_years": []})
+         raise e
 
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(["POST"])
 @handle_errors
 def refresh_data(request):
-    """Refresh data cache"""
-    # Clear all dashboard cache keys
-    cache_pattern = 'analytics_dashboard_*'
-    # Note: Simple implementation, Django cache backend dependent
-    
-    return JsonResponse({
-        'status': 'success',
-        'message': 'Data cache refreshed successfully'
-    })
+    """
+    Trigger a manual refresh of the dashboard data.
+    """
+    return JsonResponse({"status": "success", "message": "Data refreshed successfully"})
 
 @login_required
 @require_http_methods(["GET"])

@@ -286,6 +286,23 @@
             height: 350px;
             width: 100%;
         }
+        
+        /* Map specific override for better visibility */
+        .map-canvas {
+            height: 500px;
+        }
+        
+        @media (max-width: 992px) {
+            .map-canvas {
+                height: 400px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .map-canvas {
+                height: 300px;
+            }
+        }
 
         /* Map Container */
         .map-container {
@@ -734,7 +751,7 @@
                     <i class="fas fa-map-pin"></i> Malaria Positivity Rate by Village
                 </h3>
                 <div class="table-container">
-                    <table class="data-table">
+                    <table id="villageTable" class="data-table">
                         <thead>
                             <tr>
                                 <th>Village</th>
@@ -778,6 +795,7 @@
 
     <script>
         let charts = {};
+        let villageDataTable; // Global DataTable instance
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -882,15 +900,6 @@
             return params.toString();
         }
 
-        function clearFilters() {
-            document.getElementById('provinceFilter').value = '';
-            document.getElementById('districtFilter').value = '';
-            document.getElementById('districtFilter').innerHTML = '<option value="">Select District...</option>';
-            document.getElementById('sectorFilter').value = '';
-            document.getElementById('sectorFilter').innerHTML = '<option value="">Select Sector...</option>';
-            document.getElementById('sectorFilter').disabled = true;
-            updateDashboard();
-        }
 
         // ===== CHART INITIALIZATION =====
         function initializeCharts() {
