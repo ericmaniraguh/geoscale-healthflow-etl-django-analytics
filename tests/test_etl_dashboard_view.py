@@ -145,7 +145,16 @@ class TestFormSubmissions:
         assert 'health_center_data' in content.get('table_name', 'health_center_data')
 
     @patch('app.etl_app.views.etl_dashboard_view.requests.post')
-    def test_weather_success(self, mock_post, request_factory, mock_admin_user):
+    @patch('app.etl_app.views.weather_data_prec_temp_etl_view.MongoClient')
+    def test_weather_success(self, mock_mongo, mock_post, request_factory, mock_admin_user):
+        # Mock Mongo
+        mock_client = MagicMock()
+        mock_mongo.return_value = mock_client
+        mock_client.__getitem__.return_value.list_collection_names.return_value = ['metadata', 'station_metadata']
+        # Mocking discover stations
+        mock_db = mock_client.__getitem__.return_value
+        mock_db.__getitem__.return_value.find.return_value.limit.return_value = [] # No docs
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {'message': 'Success'}
@@ -154,7 +163,10 @@ class TestFormSubmissions:
         data = {
             'weather_prec_temp_submit': 'true',
             'years': '2023',
-            'station_temp': 'Kiegali'
+            'station_temp': 'Kiegali',
+            'station_prec': 'Kicukiro',
+            'district': 'Kicukiro',
+            'sector': 'Kagarama'
         }
         request = request_factory.post('/etl/dashboard/', data)
         request = setup_request(request, mock_admin_user)

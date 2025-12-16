@@ -1116,6 +1116,21 @@
                         <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="background:#28a745;width:18px;height:18px;display:inline-block;margin-right:8px;border-radius:3px;"></span><span style="font-size:12px">0.01 - 2.72 (Green)</span></div>
                     `;
                 }
+                
+                // Add Health Center Marker to Legend
+                div.innerHTML += `
+                    <div style="margin-top:10px; border-top:1px solid #eee; padding-top:8px;">
+                        <div style="display:flex;align-items:center;">
+                             <div style="width:24px;height:24px;background:white;border-radius:50%;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;margin-right:8px;box-shadow:0 0 2px rgba(0,0,0,0.3);">
+                                <i class="fas fa-plus" style="color:#d32f2f;font-size:14px;"></i>
+                             </div>
+                             <span style="font-size:12px;line-height:1.2;">
+                                Health Center / Red Cross<br>
+                                <span style="color:#666;font-size:11px;">Kampeka Village (Centroid)</span>
+                             </span>
+                        </div>
+                    </div>
+                `;
                 return div;
             };
             legendControl.addTo(map);
