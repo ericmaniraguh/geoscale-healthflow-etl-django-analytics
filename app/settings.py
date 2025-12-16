@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'app.upload_app.apps.UploadAppConfig',
     'app.etl_app.apps.EtlAppConfig',
     'app.geospatial_merger.apps.GeospatialMergerConfig',
-    'app.analytics_dashboard.apps.AnalyticsDashboardConfig', # ADDED: Analytics Dashboard Config
+    'app.analytics_dashboard.apps.AnalyticsDashboardConfig',
 ]
 
 MIDDLEWARE = [
