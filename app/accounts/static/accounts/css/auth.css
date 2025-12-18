@@ -38,7 +38,17 @@ html, body {
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  overflow-x: hidden; /* Prevent horizontal scroll */
+  overflow: hidden; /* Prevent body scroll completely (containers manage it) */
+}
+
+/* Aggressively hide all scrollbars globally if user wants 'hid these scrolling bars' */
+::-webkit-scrollbar {
+  display: none !important;
+}
+
+body, html {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .auth-wrapper {
@@ -46,6 +56,7 @@ body {
   height: 100vh;
   min-height: 100vh;
   width: 100vw; /* Full viewport width */
+  background: linear-gradient(135deg, #02690a 0%, #014d06 100%);
 }
 
 /* ============================
@@ -99,160 +110,86 @@ body {
 /* ============================
    RIGHT SIDE (FORM CONTAINER) - FIXED SHAKING
    ============================ */
+/* ============================
+   RIGHT SIDE (FORM CONTAINER) - FIXED SHAKING
+   ============================ */
+
+/* ============================
+   RIGHT SIDE (FORM CONTAINER) - FIXED SHAKING
+   ============================ */
+/* ============================
+   RIGHT SIDE (FORM CONTAINER) - FIXED SHAKING
+   ============================ */
 .auth-right {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  overflow-y: auto;
-  min-height: 100vh;
+  overflow-y: auto; /* Only show scroll if needed */
+  height: 100vh;
   position: relative;
   background-color: #ffffff;
-  /* Remove any transforms that might cause shaking */
-  transform: none;
-  will-change: auto; /* Prevent unnecessary GPU layers */
+  
+  /* Kill scrollbars */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
 
-.form-container {
-  width: 100%;
-  max-width: 380px;
-  max-height: 95vh;
-  overflow-y: auto;
-  padding-top: 80px;
-  margin-top: -40px;
-  /* Prevent any transforms or transitions that cause shaking */
-  transform: none;
-  transition: none;
+/* Kill scrollbars Webkit */
+.auth-right::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
-.form-container h2 {
-  margin-bottom: 8px;
-  color: #333;
-  font-size: 1.6rem;
-  font-weight: bold;
-  display: block;
-}
-
-.form-container p {
-  color: #666;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  display: block;
-}
+/* ... (Logo styles skipped) ... */
 
 /* ============================
-   FORM FIELDS - FIXED SHAKING
+   FORM GRIDS - RESPONSIVE
    ============================ */
-.form-field {
-  margin-bottom: 0.8rem;
-  display: block;
-  /* Prevent any layout shifts */
-  transform: none;
+/* Unified signup columns definition */
+.signup-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px; /* Reduced gap for compactness */
+  margin-bottom: 12px;
+  align-items: start;
 }
 
-.form-field label {
-  display: block;
-  margin-bottom: 0.3rem;
-  font-weight: 500;
-  color: #333;
-  font-size: 0.85rem;
-}
-
-/* ============================
-   INPUTS - REMOVED SHAKING TRANSITIONS
-   ============================ */
-.form-input,
-input[type="text"],
-input[type="email"], 
-input[type="tel"],
-input[type="password"],
-select {
-  width: 100% !important;
-  padding: 12px 14px !important;
-  border: 2px solid #ddd !important;
-  border-radius: 6px !important;
-  font-size: 0.9rem !important;
-  box-sizing: border-box !important;
-  /* Simplified transition - only border color */
-  transition: border-color 0.15s ease !important;
-  display: block !important;
-  background-color: white !important;
-  color: #333 !important;
-  font-family: Arial, sans-serif !important;
-  /* Prevent shaking */
-  transform: none !important;
-  will-change: border-color !important;
-}
-
-.form-input:focus,
-input:focus,
-select:focus {
-  outline: none !important;
-  border-color: #1d4ed8 !important;
-  /* Removed box-shadow that might cause shaking */
-  /* box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1) !important; */
-}
-
-/* ============================
-   MESSAGES (ERROR / SUCCESS)
-   ============================ */
-.field-error {
-  color: #dc2626;
-  font-size: 0.8rem;
-  margin-top: 0.25rem;
-  display: block;
-}
-
-.error-messages {
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.875rem;
-}
-
-.messages { margin-bottom: 1rem; }
-.message {
-  padding: 0.75rem 1rem;
+.signup-columns .form-field {
   margin-bottom: 0.5rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  border: 1px solid;
-}
-.message.success { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
-.message.error   { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
-.message.warning { background: #fffbeb; border-color: #fed7aa; color: #d97706; }
-.message.info    { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-
-/* ============================
-   BUTTONS - MINIMAL TRANSITIONS
-   ============================ */
-.btn-primary {
-  width: 100%;
-  padding: 12px;
-  background: #1d4ed8;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  font-weight: 500;
-  margin-top: 0.8rem;
-  /* Simplified transition */
-  transition: background-color 0.15s ease;
-  transform: none; /* Prevent shaking */
 }
 
-.btn-primary:hover { 
-  background: #1e40af; 
+/* Stack columns on mobile */
+@media (max-width: 600px) {
+  .signup-columns {
+    grid-template-columns: 1fr;
+    gap: 0; 
+  }
 }
 
-/* Removed active transform that might cause shaking */
-.btn-primary:active { 
-  background: #1e40af;
+/* Legacy grid classes */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Stack legacy grids on tablet */
+@media (max-width: 768px) {
+  .form-grid-2,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ============================

@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
-from accounts.models import CustomUser
+from app.accounts.models import CustomUser
 import logging
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class Command(BaseCommand):
                 ).exclude(email='')
                 self.stdout.write("Processing unverified users...")
 
-        total_users = users_to_process.count()
+        total_users = len(users_to_process)
         
         if total_users == 0:
             self.stdout.write(
